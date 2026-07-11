@@ -57,6 +57,10 @@ export class Boid {
         this.tailLength = randomFunc(0.9, 1.8);
         this.speedMultiplier = randomFunc(0.6, 1.3);
 
+        // Turn radius scales with THIS fish's body length, so each koi swims forward
+        // through a proportionate arc (see TURN_RADIUS_FACTOR).
+        this.turnRadius = PHYSICS_CONFIG.TURN_RADIUS_FACTOR * this.sizeMultiplier * this.lengthMultiplier;
+
         // Animation offset — each koi undulates at a different phase.
         this.animationOffset = randomFunc(0, Math.PI * 2);
     }
@@ -142,8 +146,9 @@ export class Boid {
 
         // Cap the turn rate, scaled by speed (faster => wider arcs). This is the whole
         // trick: the heading cannot jump, so it cannot wobble.
-        const speedFactor = 0.35 + 0.65 * Math.min(1, this.speed / topSpeed);
-        const maxTurn = PHYSICS_CONFIG.MAX_TURN_RATE * speedFactor;
+        // Cap the turn so the radius equals this fish's turnRadius (speed / maxTurn = radius),
+        // held under an absolute ceiling. Radius stays constant regardless of speed.
+        const maxTurn = Math.min(this.speed / this.turnRadius, PHYSICS_CONFIG.MAX_TURN_RATE);
         let requested = diff * PHYSICS_CONFIG.TURN_RESPONSIVENESS;
         // Turn dead-zone: within a few degrees of the desired heading, don't steer at
         // all — this kills the sub-degree back-and-forth chatter near equilibrium.

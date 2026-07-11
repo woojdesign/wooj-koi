@@ -26,10 +26,15 @@ export const PHYSICS_CONFIG = {
     // capped, speed-scaled rate. A rate-limited turn cannot oscillate, so this
     // replaces the damping / oscillation-detection / escape hacks (which were only
     // there to fight the wobble the velocity-vector model produced).
-    MAX_TURN_RATE: 0.005,        // radians/frame — turn radius = speed / this. At 0.005 the
-                                 // radius is ~0.85 of a body length (~150px), so the fish
-                                 // swims FORWARD through the arc instead of pivoting in place
-                                 // (0.015 gave ~0.23 body-lengths — a spin on the spot).
+    // Turn radius scales with EACH fish's own body length, so big and small koi trace
+    // proportionate arcs (radius ≈ 0.85 body-length) instead of sharing one px radius.
+    //   radius_px = TURN_RADIUS_FACTOR × sizeMultiplier × lengthMultiplier
+    //   134.6 = 0.85 (body-lengths) × 16 (body units) × 9.9 (render scale).
+    // maxTurn = speed / radius, so the radius stays constant with speed — a slow fish
+    // traces the same arc, just slower along it. This lets the fish swim FORWARD through
+    // the turn instead of pivoting in place (a fixed rate gave ~0.23 body-lengths).
+    TURN_RADIUS_FACTOR: 134.6,
+    MAX_TURN_RATE: 0.02,         // absolute safety ceiling on rad/frame (radius governs normally)
     TURN_RESPONSIVENESS: 0.12,   // how eagerly it steers toward the desired heading
     // Anti-wobble: near equilibrium the fish makes endless tiny corrections toward a
     // desired heading that itself jitters, so the rotation micro-reverses frame to

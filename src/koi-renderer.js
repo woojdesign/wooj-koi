@@ -8,17 +8,23 @@ import { DEFAULT_SHAPE_PARAMS } from './koi-params.js';
 import { ANIMATION_CONFIG } from './animation-config.js';
 import { RENDERING_CONFIG } from './rendering-config.js';
 
-// Body bend when turning (bend-to-turn). The same bend is applied to the body
-// segments AND continued into the tail, so the tail never detaches from the body.
-// bend = angular velocity × strength, clamped. Tune here.
-// Body bend when turning. The body centerline is wave + bend·t² (in vertex units, drawn
-// at sizeScale). The tail continues the SAME centerline divided by tailLength (it draws
-// at sizeScale·tailLength), so at the join the drawn y is identical on both sides and the
-// tail can't detach. bend = curvature (turn-rate ÷ speed = 1/radius) × strength, clamped —
-// so the body flex matches the turn's arc and holds even if swim speed changes.
-const KOI_BEND = { strength: 65, max: 4 };
-function koiBend(turnRate) {
-    return Math.max(-KOI_BEND.max, Math.min(KOI_BEND.max, turnRate * KOI_BEND.strength));
+// Body bend when turning — matched to the ARC the fish is travelling. A fish turning with
+// radius R (turnRate = angularVelocity ÷ speed = 1/R) over a body of length L px should
+// deflect its centerline like that arc: the centerline is wave + bend·t² (px, t = 0 head →
+// 1 tail), and the parabola that approximates an arc of radius R is bend = ½·L²·(1/R) =
+// ½·L²·turnRate. The same bend continues into the tail (extendBodyWithTail), so the whole
+// fish is one arc and the tail can't detach. `match` dials the drama; `maxBodyFrac` caps the
+// tail so it can't swing past that fraction of a body length on very tight turns.
+const KOI_BEND = { match: 0.3, maxUnits: 7 };
+function koiBend(turnRate, sizeScale) {
+    const match = KOI_BEND.match;
+    // Bend lives in SVG units (the deform adds it to the vertex y, THEN scales by sizeScale),
+    // so the drawn tail deflection is bend·sizeScale. To match an arc of radius R the drawn
+    // deflection ≈ ½·L_px²/R with L_px = 16·sizeScale and turnRate = 1/R, which gives
+    // bend = ½·16²·sizeScale·turnRate = 128·sizeScale·turnRate (units). Capped so a hard
+    // turn can't curl the fish into a hairpin.
+    const b = match * 128 * sizeScale * turnRate;
+    return Math.max(-KOI_BEND.maxUnits, Math.min(KOI_BEND.maxUnits, b));
 }
 
 /**
@@ -237,7 +243,7 @@ export class KoiRenderer {
 
         // Apply modifier size scaling
         const finalSizeScale = sizeScale * modifierSizeScale;
-        const bend = koiBend(turnRate); // body + tail curve when turning
+        const bend = koiBend(turnRate, finalSizeScale); // body + tail curve matching the turn arc
 
         // Calculate body segment positions
         const segmentPositions = this.calculateSegments(

@@ -9,7 +9,7 @@ A reusable **ambient koi flocking background** for web apps. Extracted from `woo
 mounts a full-window p5 canvas. p5 is loaded from a CDN on demand (no build dep).
 
 Distributed as a **public GitHub repo**, consumed as a git dependency pinned to a tag
-(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.2"`). Public so Vercel (and any host)
+(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.3"`). Public so Vercel (and any host)
 resolves it at build time with no auth — a local `file:../wooj-koi` can't deploy, since
 only the consumer repo is checked out on the build server. Bump = push here, `git tag
 vX.Y.Z`, then bump the ref in the consumer. For local iteration on the package, swap the
@@ -59,9 +59,21 @@ the turn rate so it can't flip sign each frame). Measured ~70% drop in turn reve
 turn-rate shake with arcs unchanged. Headless jitter harness lives in git history / the
 session scratchpad (`koi-sim/harness.mjs`) — re-run it if you retune these.
 
-**Turn radius (0.1.2):** the fish are drawn ~175px long but were turning at ~0.23 of a
-body-length radius (35px) — a spin in place, not a forward arc. Turn radius = speed /
-(`MAX_TURN_RATE` × speedFactor), so `MAX_TURN_RATE` was lowered 0.015 → 0.005 (radius ~0.85
-body-length ≈ 130px) and `MIN_SPEED_FRACTION` 0.45 → 0.6 (keep gliding forward through the
-turn). Cost is lazier turns (~5s for 90°), which is the intended calm feel. Measure radius
-in body-lengths with `koi-sim/radius.mjs`.
+**Turn radius (0.1.2–0.1.3):** the fish are drawn ~175px long but were turning at ~0.23 of a
+body-length radius (35px) — a spin in place, not a forward arc. Now each fish's turn radius
+scales with ITS OWN body length: `boid.turnRadius = TURN_RADIUS_FACTOR × sizeMultiplier ×
+lengthMultiplier` (≈0.85 body-length), and `maxTurn = speed / turnRadius` (radius constant
+with speed). `MIN_SPEED_FRACTION` 0.45 → 0.6 keeps them gliding forward through the turn.
+Cost is lazier turns (~5s for 90°) — the intended calm feel. Measure radius in body-lengths
+with `koi-sim/radius.mjs`.
+
+**Body bend matches the arc (0.1.3):** `koiBend()` sets the centerline curve `y = wave +
+bend·t²` to follow the travelled arc. The gotcha: the body deform (`applyWaveDeformation`)
+adds the spine y to the SVG vertex y and THEN scales by `sizeScale`, so **bend is in SVG
+units, not px** — the drawn deflection is `bend·sizeScale`. Matching an arc of radius R
+gives `bend = 128 · sizeScale · turnRate` units (128 = ½·16², body is 16 units wide);
+`KOI_BEND.match` (0.3) dials it down from the literal arc (a 0.85-radius arc is nearly a
+hairpin and over-sweeps the tail), `maxUnits` caps it. Calibrated with a throwaway
+`_bendtest.html` that renders fish at fixed hard-left/straight/hard-right turnRates — re-add
+one like it (import the renderer, `noLoop`, screenshot) if you retune the bend; DON'T just
+crank the number blind, the tail flings past ~5 units.
