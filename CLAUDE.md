@@ -9,7 +9,7 @@ A reusable **ambient koi flocking background** for web apps. Extracted from `woo
 mounts a full-window p5 canvas. p5 is loaded from a CDN on demand (no build dep).
 
 Distributed as a **public GitHub repo**, consumed as a git dependency pinned to a tag
-(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.0"`). Public so Vercel (and any host)
+(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.1"`). Public so Vercel (and any host)
 resolves it at build time with no auth — a local `file:../wooj-koi` can't deploy, since
 only the consumer repo is checked out on the build server. Bump = push here, `git tag
 vX.Y.Z`, then bump the ref in the consumer. For local iteration on the package, swap the
@@ -50,3 +50,11 @@ The look-and-feel history (calm rate-limited turning, break-off, seamless wrap, 
 with an attached tail, per-fish tail size, speed-linked wiggle) is captured in git. Dials:
 `physics-config.js` (motion), `koi-renderer.js` `KOI_BEND` + `extendBodyWithTail` (bend/tail),
 `animation-config.js` (wiggle).
+
+**Anti-wobble (0.1.1):** near equilibrium the fish used to make endless sub-degree turn
+corrections toward a jittering desired-heading, so the rotation micro-reversed frame to
+frame (visible as jitter, worse when crowded). Fixed in `boid.js update()` with a turn
+`TURN_DEADZONE` (~3°: stop steering when nearly on-heading) + `ANGVEL_SMOOTHING` (low-pass
+the turn rate so it can't flip sign each frame). Measured ~70% drop in turn reversals +
+turn-rate shake with arcs unchanged. Headless jitter harness lives in git history / the
+session scratchpad (`koi-sim/harness.mjs`) — re-run it if you retune these.

@@ -1,6 +1,6 @@
 {
   "name": "wooj-koi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ambient sumi-e koi flocking background — framework-agnostic (p5, loaded on demand).",
   "type": "module",
   "main": "src/index.js",

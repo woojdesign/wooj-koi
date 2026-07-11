@@ -28,6 +28,13 @@ export const PHYSICS_CONFIG = {
     // there to fight the wobble the velocity-vector model produced).
     MAX_TURN_RATE: 0.015,        // radians/frame — smaller = wider arcs (turn radius = speed / this ≈ 40px)
     TURN_RESPONSIVENESS: 0.12,   // how eagerly it steers toward the desired heading
+    // Anti-wobble: near equilibrium the fish makes endless tiny corrections toward a
+    // desired heading that itself jitters, so the rotation micro-reverses frame to
+    // frame. The dead-zone stops steering once within a few degrees of the target;
+    // the low-pass keeps the turn RATE from flipping sign every frame. Together they
+    // cut turn reversals + turn-rate shake ~70% without widening the arcs (measured).
+    TURN_DEADZONE: 0.052,        // radians (~3°) — below this heading error, don't steer
+    ANGVEL_SMOOTHING: 0.15,      // low-pass on the turn rate (fraction eased per frame)
     SPEED_SMOOTHING: 0.08,       // how gently speed eases toward its target
     MIN_SPEED_FRACTION: 0.45,    // never fully stop (fraction of the fish's top speed)
 

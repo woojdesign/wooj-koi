@@ -144,8 +144,14 @@ export class Boid {
         // trick: the heading cannot jump, so it cannot wobble.
         const speedFactor = 0.35 + 0.65 * Math.min(1, this.speed / topSpeed);
         const maxTurn = PHYSICS_CONFIG.MAX_TURN_RATE * speedFactor;
-        const requested = diff * PHYSICS_CONFIG.TURN_RESPONSIVENESS;
-        this.angularVelocity = Math.max(-maxTurn, Math.min(maxTurn, requested));
+        let requested = diff * PHYSICS_CONFIG.TURN_RESPONSIVENESS;
+        // Turn dead-zone: within a few degrees of the desired heading, don't steer at
+        // all — this kills the sub-degree back-and-forth chatter near equilibrium.
+        if (Math.abs(diff) < PHYSICS_CONFIG.TURN_DEADZONE) requested = 0;
+        let clamped = Math.max(-maxTurn, Math.min(maxTurn, requested));
+        // Low-pass the turn rate so it can't flip sign frame to frame (steadies the wobble).
+        clamped = this.angularVelocity + (clamped - this.angularVelocity) * PHYSICS_CONFIG.ANGVEL_SMOOTHING;
+        this.angularVelocity = clamped;
         this.heading += this.angularVelocity;
 
         // Ease speed toward its target.
