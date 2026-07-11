@@ -26,7 +26,10 @@ export const PHYSICS_CONFIG = {
     // capped, speed-scaled rate. A rate-limited turn cannot oscillate, so this
     // replaces the damping / oscillation-detection / escape hacks (which were only
     // there to fight the wobble the velocity-vector model produced).
-    MAX_TURN_RATE: 0.015,        // radians/frame — smaller = wider arcs (turn radius = speed / this ≈ 40px)
+    MAX_TURN_RATE: 0.005,        // radians/frame — turn radius = speed / this. At 0.005 the
+                                 // radius is ~0.85 of a body length (~150px), so the fish
+                                 // swims FORWARD through the arc instead of pivoting in place
+                                 // (0.015 gave ~0.23 body-lengths — a spin on the spot).
     TURN_RESPONSIVENESS: 0.12,   // how eagerly it steers toward the desired heading
     // Anti-wobble: near equilibrium the fish makes endless tiny corrections toward a
     // desired heading that itself jitters, so the rotation micro-reverses frame to
@@ -36,7 +39,8 @@ export const PHYSICS_CONFIG = {
     TURN_DEADZONE: 0.052,        // radians (~3°) — below this heading error, don't steer
     ANGVEL_SMOOTHING: 0.15,      // low-pass on the turn rate (fraction eased per frame)
     SPEED_SMOOTHING: 0.08,       // how gently speed eases toward its target
-    MIN_SPEED_FRACTION: 0.45,    // never fully stop (fraction of the fish's top speed)
+    MIN_SPEED_FRACTION: 0.6,     // keep gliding forward (esp. through turns) — a higher floor
+                                 // means it doesn't slow to a near-pivot mid-turn
 
     // Force prioritization thresholds
     SEPARATION_HIGH_THRESHOLD: 0.05,    // When separation force this strong, prioritize 90%
