@@ -1,0 +1,20 @@
+{
+  "name": "wooj-koi",
+  "version": "0.1.0",
+  "description": "Ambient sumi-e koi flocking background — framework-agnostic (p5, loaded on demand).",
+  "type": "module",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./koi/*": "./koi/*"
+  },
+  "files": ["src", "koi", "bin", "README.md"],
+  "bin": {
+    "wooj-koi-assets": "bin/copy-assets.js"
+  },
+  "sideEffects": false,
+  "author": "Wooj",
+  "license": "UNLICENSED",
+  "repository": "woojdesign/wooj-koi"
+}
