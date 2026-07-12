@@ -58,8 +58,8 @@ package just draws the fish.
 A browser playground for tuning, in `tester/` (dev-only, not shipped in the package):
 
 ```sh
-npm run tester          # serves the repo on :8080
-# open http://localhost:8080/tester/
+npm run tester          # serves the repo on :8123
+# open http://localhost:8123/tester/
 ```
 
 - **Flock tester** (`tester/index.html`) — the live flock with every dial as a slider

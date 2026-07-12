@@ -39,8 +39,7 @@ consumer to `file:../wooj-koi`. `wooj-site` is the reference consumer.
 
 `tester/` is a browser playground for tuning — served, not shipped (excluded from the npm
 `files` whitelist, and it postdates the tags consumers pin). `npm run tester` (python
-http.server on :8080; the repo also runs a Rails app on 8080 sometimes — use another port if
-busy), open `/tester/`.
+http.server on :8123 — 8080 is taken by a sibling Rails app), open `/tester/`.
 
 - `tester/index.html` — live flock; every dial (PHYSICS_CONFIG, params, KOI_BEND,
   ANIMATION_CONFIG.wave) is a slider that mutates the imported config object in place, so it's
