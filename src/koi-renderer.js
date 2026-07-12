@@ -358,14 +358,17 @@ export class KoiRenderer {
         // Forked caudal fan (SVG units), wrist at local origin, lobes extending -x.
         const tailScale = Math.min(1, 0.55 + 0.45 * (tailLength - 0.9) / 0.9);
         const r = 7.5 * tailScale, f = 3.6 * tailScale;
+        // Narrow wrist near the body (fine attachment), widening to the forked lobes.
         const fan = [
-            { x: 0,          y: +f * 0.35 },
-            { x: -r * 0.65,  y: +f },
-            { x: -r * 0.75,  y: +f * 0.4 },
-            { x: -r * 0.55,  y: 0 },          // center notch (fork)
-            { x: -r * 0.75,  y: -f * 0.4 },
-            { x: -r * 0.65,  y: -f },
-            { x: 0,          y: -f * 0.35 },
+            { x: r * 0.1,    y: +f * 0.06 },  // wrist — fine point tucked into the body
+            { x: -r * 0.5,   y: +f * 0.55 },  // upper, widening
+            { x: -r * 0.9,   y: +f },         // upper lobe tip
+            { x: -r * 0.7,   y: +f * 0.25 },  // upper inner
+            { x: -r * 0.5,   y: 0 },          // center notch (fork)
+            { x: -r * 0.7,   y: -f * 0.25 },  // lower inner
+            { x: -r * 0.9,   y: -f },         // lower lobe tip
+            { x: -r * 0.5,   y: -f * 0.55 },  // lower, widening
+            { x: r * 0.1,    y: -f * 0.06 },  // wrist — fine point
         ];
         context.push();
         context.translate(ax, ay);
@@ -1597,14 +1600,19 @@ export class KoiRenderer {
             const headPos = segmentPositions[0];
             if (!headPos) return; // Guard: ensure head segment exists
 
-            const headOffsetX = shapeParams.headX * sizeScale;
-
-            ctx.moveTo(headPos.x + headOffsetX + svgVertices.head[0].x * sizeScale,
-                      headPos.y + svgVertices.head[0].y * sizeScale);
+            // Match drawHeadFromSVG EXACTLY: centre at (headX, headPos.y·sizeScale) and rotate
+            // by the local head tangent. The old code used headPos.y unscaled + no rotation, so
+            // the clip head diverged from the drawn head → the texture painted a ghost "head".
+            const cx = headPos.x + shapeParams.headX * sizeScale;
+            const cy = headPos.y * sizeScale;
+            const h1 = segmentPositions[1] || headPos;
+            const headAngle = Math.atan2((headPos.y - h1.y) * sizeScale, headPos.x - h1.x);
+            const ca = Math.cos(headAngle), sa = Math.sin(headAngle);
+            const hx = (v) => cx + (v.x * sizeScale) * ca - (v.y * sizeScale) * sa;
+            const hy = (v) => cy + (v.x * sizeScale) * sa + (v.y * sizeScale) * ca;
+            ctx.moveTo(hx(svgVertices.head[0]), hy(svgVertices.head[0]));
             for (let i = 1; i < svgVertices.head.length; i++) {
-                const v = svgVertices.head[i];
-                ctx.lineTo(headPos.x + headOffsetX + v.x * sizeScale,
-                          headPos.y + v.y * sizeScale);
+                ctx.lineTo(hx(svgVertices.head[i]), hy(svgVertices.head[i]));
             }
             ctx.closePath();
         } else {
