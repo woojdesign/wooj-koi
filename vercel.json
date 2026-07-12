@@ -1,0 +1,6 @@
+{
+  "outputDirectory": ".",
+  "redirects": [
+    { "source": "/", "destination": "/tester/index.html", "permanent": false }
+  ]
+}
