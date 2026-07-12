@@ -158,6 +158,9 @@ export class KoiRenderer {
         this.brushTextures = brushTextures;
         this.useSumieStyle = brushTextures !== null && brushTextures.isReady;
 
+        // Debug: toggle individual layers on/off (set by the tester to isolate parts).
+        this.parts = { fins: true, body: true, tail: true, head: true, texture: true, spots: true };
+
         // Wave value cache for performance (eliminates ~800 Math.sin() calls per frame)
         this.waveCache = null;
         this.lastWaveTime = -1;
@@ -284,7 +287,9 @@ export class KoiRenderer {
         // 5. Spots (on top of head)
         // 6. Dorsal fin (drawn last, appears on top of body)
 
-        this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
+        const show = this.parts;
+
+        if (show.fins) this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
             pectoralFin: svgVertices.pectoralFin,
             dorsalFin: null, // Don't draw dorsal fin yet
             ventralFin: svgVertices.ventralFin
@@ -293,25 +298,33 @@ export class KoiRenderer {
         // the body's bent centerline and a fan is spliced into the body's vertex loop, so
         // the whole fish is one shape over one centerline and the tail can't detach. Only
         // the procedural fallback (no body SVG) uses the old separate drawTail.
-        if (svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0) {
-            const ext = this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength);
-            this.drawBodyFromSVG(context, ext.segments, ext.verts, shapeParams, finalSizeScale, hue, saturation, brightness);
-        } else {
-            this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, curvature);
-            this.drawBody(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness);
+        if (show.body) {
+            if (svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0) {
+                if (show.tail) {
+                    const ext = this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength);
+                    this.drawBodyFromSVG(context, ext.segments, ext.verts, shapeParams, finalSizeScale, hue, saturation, brightness);
+                } else {
+                    this.drawBodyFromSVG(context, segmentPositions, svgVertices.body, shapeParams, finalSizeScale, hue, saturation, brightness); // body only, no tail
+                }
+            } else {
+                this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, curvature);
+                this.drawBody(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness);
+            }
         }
 
-        this.drawHead(context, segmentPositions[0], shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices.head);
+        if (show.head) this.drawHead(context, segmentPositions[0], shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices.head);
 
         // Clip body texture and spots to body+head outline for cleaner appearance
         // Single clipping region shared by both operations (performance optimization)
-        this.clipToBodyAndHead(context, segmentPositions, svgVertices, shapeParams, finalSizeScale);
-        this.applyBodyTexture(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices);
-        this.drawSpots(context, segmentPositions, pattern.spots || [], finalSizeScale, boidSeed, angle, brightness);
-        context.drawingContext.restore(); // Remove clip
+        if (show.body && (show.texture || show.spots)) {
+            this.clipToBodyAndHead(context, segmentPositions, svgVertices, shapeParams, finalSizeScale);
+            if (show.texture) this.applyBodyTexture(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices);
+            if (show.spots) this.drawSpots(context, segmentPositions, pattern.spots || [], finalSizeScale, boidSeed, angle, brightness);
+            context.drawingContext.restore(); // Remove clip
+        }
 
         // Draw dorsal fin last so it appears on top of the body
-        this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
+        if (show.fins) this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
             pectoralFin: null, // Don't draw pectoral fins again
             dorsalFin: svgVertices.dorsalFin, // Only draw dorsal fin
             ventralFin: null // Don't draw ventral fins again

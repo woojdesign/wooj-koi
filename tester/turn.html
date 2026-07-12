@@ -60,6 +60,15 @@
       <label><input id="trails" type="checkbox"> trail</label>
       <label><input id="pause" type="checkbox"> pause</label>
     </div>
+    <h2>layers (debug)</h2>
+    <div class="conds">
+      <label><input type="checkbox" data-part="body" checked> body</label>
+      <label><input type="checkbox" data-part="tail" checked> tail</label>
+      <label><input type="checkbox" data-part="head" checked> head</label>
+      <label><input type="checkbox" data-part="fins" checked> fins</label>
+      <label><input type="checkbox" data-part="texture" checked> texture</label>
+      <label><input type="checkbox" data-part="spots" checked> spots</label>
+    </div>
     <div id="dials"></div>
     <div class="btns" style="margin-top:12px"><button id="reset">reset</button><button id="export" class="primary">export</button></div>
     <textarea id="out" placeholder="export → bend + wiggle dials as JSON. Paste back to me to bake in."></textarea>
@@ -127,6 +136,13 @@ function syncRailRows() {
 }
 railType.addEventListener('change', () => { rail.type = railType.value; syncRailRows(); resetPath(); }); syncRailRows();
 ['cw','smooth','railShow','overlay','trails','pause'].forEach(id => document.getElementById(id).addEventListener('change', e => rail[id] = e.target.checked));
+// layer toggles (debug) — mutate the renderer's part flags
+const parts = { fins:true, body:true, tail:true, head:true, texture:true, spots:true };
+document.querySelectorAll('[data-part]').forEach(el => el.addEventListener('change', e => { parts[e.target.dataset.part] = e.target.checked; }));
+// URL preset: ?hide=head,texture
+(new URLSearchParams(location.search).get('hide')||'').split(',').filter(Boolean).forEach(pt => {
+  if (pt in parts) { parts[pt] = false; const cb = document.querySelector(`[data-part="${pt}"]`); if (cb) cb.checked = false; }
+});
 document.getElementById('reset').addEventListener('click', () => { Object.entries(DEFAULTS).forEach(([k,v]) => { const [o,key]=k.split('.'); TARGET[o][key]=v; els[k].inp.value=v; els[k].show(); }); });
 document.getElementById('export').addEventListener('click', () => {
   const out = {};
@@ -203,6 +219,7 @@ new p5((p) => {
     // the koi
     const turnRate = rail.smooth ? renderCurv : cur.curvature;
     if (svgVertices.body && cur) {
+      renderer.parts = parts; // apply debug layer toggles
       const sizeScale = rail.size * RENDER_SCALE;
       const speedFrac = Math.min(1, rail.speed / 0.6);
       const ampScale = rail.size * (0.4 + 0.6*speedFrac);

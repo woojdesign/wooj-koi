@@ -64,6 +64,10 @@ re-enable it, but if a URL starts 302'ing to `vercel.com/sso-api`, that's the to
   loosely to tune the animation.)
 - Needed `export const KOI_BEND` in `koi-renderer.js` so the tester can tune it live (was
   module-private). Harmless additive export.
+- **Layer toggles:** the renderer has `this.parts = { fins, body, tail, head, texture, spots }`
+  (all true) that `render()` guards each draw with — set by the rail tuner's "layers" checkboxes
+  (or `turn.html?hide=head,texture`) to isolate parts when diagnosing. `tail:false` draws the
+  body outline without the tail extension.
 
 ## Gotchas
 
