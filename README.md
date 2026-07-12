@@ -53,6 +53,23 @@ Position the container yourself (usually fixed, behind everything):
 The app owns framing (blur, opacity, e-ink handling, view-transition persistence). The
 package just draws the fish.
 
+## Tester
+
+A browser playground for tuning, in `tester/` (dev-only, not shipped in the package):
+
+```sh
+npm run tester          # serves the repo on :8080
+# open http://localhost:8080/tester/
+```
+
+- **Flock tester** (`tester/index.html`) — the live flock with every dial as a slider
+  (turning, speed, flocking, bend, wiggle), condition controls (fish count, crowd/scatter,
+  follow-pointer, motion trails, pause), and a debug overlay (turn-radius circle, heading,
+  perception). Hit **export settings** to copy the current dials as JSON.
+- **Koi viewer** (`tester/koi.html`) — a gallery of all 26 varieties, and an inspector for a
+  single koi (pick a variety, reroll its pattern, randomize a fish, and scrub size / length /
+  tail / bend / wave). `?mode=inspect` opens straight to the inspector.
+
 ## Tuning
 
 The feel lives in the source: `src/physics-config.js` (turn rate, speeds, break-off),

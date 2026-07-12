@@ -35,6 +35,23 @@ consumer to `file:../wooj-koi`. `wooj-site` is the reference consumer.
 - `koi/` — the assets (`body-parts/*.svg`, `brushstrokes/*.png`). Shipped in the package;
   consumers copy them to their served dir via `bin/copy-assets.js` (`npx wooj-koi-assets`).
 
+## Tester (dev tool)
+
+`tester/` is a browser playground for tuning — served, not shipped (excluded from the npm
+`files` whitelist, and it postdates the tags consumers pin). `npm run tester` (python
+http.server on :8080; the repo also runs a Rails app on 8080 sometimes — use another port if
+busy), open `/tester/`.
+
+- `tester/index.html` — live flock; every dial (PHYSICS_CONFIG, params, KOI_BEND,
+  ANIMATION_CONFIG.wave) is a slider that mutates the imported config object in place, so it's
+  the REAL package behaviour. Conditions (count, crowd/scatter, pointer, trails, pause) +
+  debug overlay (turn-radius circle, heading, perception). **Export settings** dumps the
+  dials as JSON — that's how a tuning comes back to get baked into the source.
+- `tester/koi.html` — variety gallery (all 26 from `VARIETIES`) + single-koi inspector
+  (variety, reroll pattern, randomize, size/length/tail/bend/wave). `?mode=inspect`.
+- Needed `export const KOI_BEND` in `koi-renderer.js` so the tester can tune it live (was
+  module-private). Harmless additive export.
+
 ## Gotchas
 
 - **The app owns framing.** Blur, opacity, e-ink (don't init on e-ink), and view-transition

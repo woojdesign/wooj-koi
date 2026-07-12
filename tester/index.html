@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wooj-koi — tester</title>
+<style>
+  :root { --bg:#f4f0e6; --panel:#1c1a17; --ink:#e8e2d6; --muted:#9a9488; --line:#33302b; --accent:#d98b6a; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #app { display:flex; height:100vh; }
+  #stage { position:relative; flex:1; background:var(--bg); overflow:hidden; }
+  #hud { position:absolute; top:10px; left:12px; font-size:12px; color:#7a746a; line-height:1.5;
+         background:rgba(244,240,230,.7); padding:6px 9px; border-radius:6px; pointer-events:none; }
+  aside { width:340px; background:var(--panel); color:var(--ink); overflow-y:auto; padding:14px 14px 40px;
+          border-left:1px solid #000; }
+  nav { display:flex; gap:8px; margin-bottom:12px; }
+  nav a { font-size:11px; color:var(--muted); text-decoration:none; border:1px solid var(--line); padding:4px 9px; border-radius:5px; }
+  nav a.on { color:#241; background:var(--accent); border-color:var(--accent); }
+  h1 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin:2px 0 10px; color:var(--accent); }
+  h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+       margin:16px 0 6px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .row { display:grid; grid-template-columns: 1fr 46px; gap:6px; align-items:center; margin:5px 0; }
+  .row label { font-size:11.5px; color:var(--ink); }
+  .row .val { font-size:11px; color:var(--accent); text-align:right; }
+  input[type=range] { grid-column:1 / -1; width:100%; accent-color:var(--accent); height:16px; margin:0; }
+  .conds { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .conds label { font-size:11.5px; display:flex; gap:5px; align-items:center; }
+  button { font-family:inherit; font-size:11px; background:#2a2723; color:var(--ink); border:1px solid var(--line);
+           border-radius:5px; padding:5px 9px; cursor:pointer; }
+  button:hover { background:#35312b; }
+  button.primary { background:var(--accent); color:#241; border-color:var(--accent); }
+  .btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  textarea { width:100%; height:150px; margin-top:8px; background:#0f0e0c; color:#cfc8ba; border:1px solid var(--line);
+             border-radius:5px; font-family:inherit; font-size:10.5px; padding:8px; }
+  .note { font-size:10.5px; color:var(--muted); margin-top:4px; line-height:1.4; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><div id="hud"></div></div>
+  <aside>
+    <nav><a href="./index.html" class="on">flock tester</a><a href="./koi.html">koi viewer</a></nav>
+    <h1>wooj-koi tester</h1>
+    <h2>conditions</h2>
+    <div class="conds">
+      <label>fish <input id="count" type="range" min="1" max="14" step="1" style="width:90px"><span id="countv" class="val"></span></label>
+    </div>
+    <div class="conds" style="margin-top:8px">
+      <label><input id="pointer" type="checkbox"> follow pointer</label>
+      <label><input id="trails" type="checkbox"> motion trails</label>
+      <label><input id="debug" type="checkbox"> debug overlay</label>
+      <label><input id="pause" type="checkbox"> pause</label>
+    </div>
+    <div class="btns">
+      <button id="cluster">cluster (crowd)</button>
+      <button id="scatter">scatter</button>
+      <button id="respawn">respawn</button>
+    </div>
+    <div id="dials"></div>
+    <div class="btns" style="margin-top:14px">
+      <button id="reset">reset to shipped</button>
+      <button id="export" class="primary">export settings</button>
+    </div>
+    <textarea id="out" placeholder="export settings → the current dials as JSON (also copied to clipboard). Paste it back to me to bake in."></textarea>
+    <div class="note">Drives the real package (../src). Tune here, hit export, hand me the JSON and I'll bake the values into the package + bump a version.</div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+<script type="module">
+import { FlockManager } from '../src/flock-manager.js';
+import { KoiRenderer, KOI_BEND } from '../src/koi-renderer.js';
+import { BrushTextures } from '../src/brush-textures.js';
+import { SVGParser } from '../src/svg-parser.js';
+import { DEFAULT_SHAPE_PARAMS } from '../src/koi-params.js';
+import { PHYSICS_CONFIG } from '../src/physics-config.js';
+import { ANIMATION_CONFIG } from '../src/animation-config.js';
+
+const BASE = '../koi';
+
+// live flocking params (passed to flock.update every frame)
+const params = { numBoids: 5, maxSpeed: 0.6, maxForce: 0.05,
+  separationWeight: 1.8, alignmentWeight: 0.6, cohesionWeight: 0.8, attractionWeight: 1.2 };
+
+// which object each dial mutates
+const TARGET = { phys: PHYSICS_CONFIG, params, bend: KOI_BEND, wave: ANIMATION_CONFIG.wave };
+
+// dial schema — grouped. min/max chosen around the shipped values.
+const DIALS = [
+  ['Turning', [
+    ['phys','TURN_RADIUS_FACTOR', 40, 300, 1,    'turn radius factor (px/body-unit)'],
+    ['phys','MAX_TURN_RATE',      0.004, 0.04, 0.001, 'max turn rate (ceiling, rad/frame)'],
+    ['phys','TURN_RESPONSIVENESS',0.02, 0.5, 0.01,  'turn responsiveness'],
+    ['phys','TURN_DEADZONE',      0, 0.2, 0.004,     'turn dead-zone (rad)'],
+    ['phys','ANGVEL_SMOOTHING',   0.02, 0.5, 0.01,  'turn-rate smoothing'],
+  ]],
+  ['Speed', [
+    ['params','maxSpeed',         0.1, 2, 0.05,      'max speed (px/frame)'],
+    ['phys','MIN_SPEED_FRACTION', 0, 1, 0.05,        'min speed fraction'],
+    ['phys','SPEED_SMOOTHING',    0.02, 0.3, 0.01,   'speed smoothing'],
+  ]],
+  ['Flocking', [
+    ['params','separationWeight', 0, 4, 0.1,         'separation'],
+    ['params','alignmentWeight',  0, 3, 0.1,         'alignment'],
+    ['params','cohesionWeight',   0, 3, 0.1,         'cohesion'],
+    ['params','attractionWeight', 0, 3, 0.1,         'pointer attraction'],
+    ['phys','PERCEPTION_RADIUS',  20, 250, 5,        'perception radius (px)'],
+    ['phys','FORCE_SMOOTHING',    0.02, 0.6, 0.01,   'force smoothing'],
+    ['params','maxForce',         0.01, 0.2, 0.005,  'max force'],
+  ]],
+  ['Body bend', [
+    ['bend','match',              0, 1, 0.02,        'bend match (arc)'],
+    ['bend','maxUnits',           1, 12, 0.5,        'bend cap (units)'],
+    ['phys','BEND_SMOOTHING',     0.01, 0.3, 0.005,  'bend smoothing (anti-flick)'],
+  ]],
+  ['Wiggle', [
+    ['wave','amplitude',          0, 2, 0.05,        'wave amplitude'],
+    ['phys','WAVE_RATE',          0.02, 0.4, 0.01,   'wave rate (× speed)'],
+    ['wave','phaseGradient',      0.5, 6, 0.1,       'wave phase gradient'],
+    ['wave','dampening',          0, 0.6, 0.02,      'wave dampening → tail'],
+  ]],
+];
+
+// snapshot the shipped defaults for reset
+const DEFAULTS = {};
+DIALS.forEach(([,rows]) => rows.forEach(([obj,key]) => DEFAULTS[obj+'.'+key] = TARGET[obj][key]));
+const DEFAULT_COUNT = params.numBoids;
+
+const decimals = (step) => { const s = String(step); return s.includes('.') ? s.split('.')[1].length : 0; };
+const els = {};
+
+// build the slider UI
+const dialsEl = document.getElementById('dials');
+DIALS.forEach(([group, rows]) => {
+  const h = document.createElement('h2'); h.textContent = group; dialsEl.appendChild(h);
+  rows.forEach(([obj, key, min, max, step, label]) => {
+    const row = document.createElement('div'); row.className = 'row';
+    const lab = document.createElement('label'); lab.textContent = label;
+    const val = document.createElement('span'); val.className = 'val';
+    const inp = document.createElement('input'); inp.type = 'range';
+    inp.min = min; inp.max = max; inp.step = step; inp.value = TARGET[obj][key];
+    const d = decimals(step);
+    const show = () => { val.textContent = Number(TARGET[obj][key]).toFixed(d); };
+    inp.addEventListener('input', () => { TARGET[obj][key] = parseFloat(inp.value); show(); });
+    show();
+    row.append(lab, val, inp); dialsEl.appendChild(row);
+    els[obj+'.'+key] = { inp, show };
+  });
+});
+
+// conditions wiring
+const state = { followPointer: false, trails: false, debug: false, paused: false };
+document.getElementById('pointer').addEventListener('change', e => state.followPointer = e.target.checked);
+document.getElementById('trails').addEventListener('change', e => state.trails = e.target.checked);
+document.getElementById('debug').addEventListener('change', e => state.debug = e.target.checked);
+document.getElementById('pause').addEventListener('change', e => state.paused = e.target.checked);
+const countEl = document.getElementById('count'), countV = document.getElementById('countv');
+countEl.value = params.numBoids; countV.textContent = params.numBoids;
+countEl.addEventListener('input', () => { params.numBoids = +countEl.value; countV.textContent = countEl.value; rebuild(); });
+
+document.getElementById('reset').addEventListener('click', () => {
+  Object.entries(DEFAULTS).forEach(([k, v]) => { const [o, key] = k.split('.'); TARGET[o][key] = v; els[k].inp.value = v; els[k].show(); });
+  params.numBoids = DEFAULT_COUNT; countEl.value = DEFAULT_COUNT; countV.textContent = DEFAULT_COUNT; rebuild();
+});
+document.getElementById('export').addEventListener('click', () => {
+  const out = { physics: {}, params: {}, bend: {}, wave: {}, conditions: { numBoids: params.numBoids } };
+  const bucket = { phys: 'physics', params: 'params', bend: 'bend', wave: 'wave' };
+  DIALS.forEach(([,rows]) => rows.forEach(([obj, key]) => {
+    const v = TARGET[obj][key], changed = v !== DEFAULTS[obj+'.'+key];
+    out[bucket[obj]][key] = { value: +v.toFixed(6), changed };
+  }));
+  const txt = JSON.stringify(out, null, 2);
+  document.getElementById('out').value = txt;
+  navigator.clipboard?.writeText(txt).catch(()=>{});
+});
+
+// ---- p5 sketch: mirrors index.js draw loop, plus overlay ----
+let flock, renderer, brushTextures, P;
+const svgVertices = { body:null, tail:null, head:null, pectoralFin:null, dorsalFin:null, ventralFin:null };
+const imgs = { body:null, fin:null, tail:null, spots:[], paper:null };
+function rebuild() { if (P) buildFlock(P); }
+function buildFlock(p) {
+  const tempVec = p.createVector(0, 0);
+  flock = new FlockManager(params.numBoids, p.width, p.height, {
+    random: (...a) => p.random(...a), createVector: (...a) => p.createVector(...a),
+    floor: (...a) => p.floor(...a), p5Instance: { Vector: tempVec.constructor },
+  });
+}
+function stageSize() { const s = document.getElementById('stage'); return [s.clientWidth, s.clientHeight]; }
+
+new p5((p) => {
+  P = p;
+  p.preload = async function () {
+    imgs.body = p.loadImage(`${BASE}/brushstrokes/body-processed.png`);
+    imgs.fin  = p.loadImage(`${BASE}/brushstrokes/fin.png`);
+    imgs.tail = p.loadImage(`${BASE}/brushstrokes/tail.png`);
+    imgs.spots = [1,2,3,4,5].map(n => p.loadImage(`${BASE}/brushstrokes/spot-${n}-processed.png`));
+    imgs.paper = p.loadImage(`${BASE}/brushstrokes/paper.png`);
+    svgVertices.body = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/body.svg`, 20, { width:16, height:5.2 });
+    svgVertices.tail = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/tail.svg`, 20, { width:6, height:4 });
+    svgVertices.head = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/head.svg`, 20, { width:7.5, height:5.0 });
+    svgVertices.pectoralFin = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/pectoral-fin.svg`, 20, { width:4.5, height:2 });
+    svgVertices.dorsalFin = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/dorsal-fin.svg`, 20, { width:4, height:5 });
+    svgVertices.ventralFin = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/ventral-fin.svg`, 20, { width:3, height:1.5 });
+  };
+  p.setup = function () {
+    const [w, h] = stageSize();
+    const c = p.createCanvas(w, h); c.parent('stage');
+    brushTextures = new BrushTextures(); brushTextures.loadImages(imgs); brushTextures.setP5Instance(p);
+    renderer = new KoiRenderer(brushTextures);
+    buildFlock(p);
+  };
+  p.windowResized = function () { const [w, h] = stageSize(); p.resizeCanvas(w, h); if (flock) { flock.width = w; flock.height = h; } };
+
+  let mouseTarget = null;
+  const hud = document.getElementById('hud');
+  p.draw = function () {
+    if (state.trails) { p.push(); p.noStroke(); p.fill(244,240,230,14); p.rect(0,0,p.width,p.height); p.pop(); }
+    else p.background(244,240,230);
+
+    if (state.followPointer && p.mouseX>=0 && p.mouseY>=0 && p.mouseX<=p.width && p.mouseY<=p.height) mouseTarget = { x:p.mouseX, y:p.mouseY };
+    else if (!state.followPointer) mouseTarget = null;
+
+    if (!state.paused && flock) flock.update(params, mouseTarget);
+
+    if (flock) for (const boid of flock.boids) {
+      const waveTime = boid.wavePhase + boid.animationOffset;
+      const sizeScale = boid.sizeMultiplier * (p.width < 640 ? 5.5 : 9.9);
+      const speedFrac = Math.min(1, boid.speed / (params.maxSpeed * boid.speedMultiplier));
+      const ampScale = boid.sizeMultiplier * (0.4 + 0.6 * speedFrac);
+      const renderParams = {
+        shapeParams: DEFAULT_SHAPE_PARAMS, colorParams: boid.color, pattern: boid.pattern,
+        animationParams: { waveTime, sizeScale, waveAmplitudeScale: ampScale,
+          lengthMultiplier: boid.lengthMultiplier, tailLength: boid.tailLength, turnRate: boid.renderCurvature },
+        modifiers: { brightnessBoost:0, saturationBoost:0, sizeScale:1 },
+        boidSeed: Math.floor(boid.animationOffset * 1000), svgVertices,
+      };
+      const margin = 20 * sizeScale;
+      const xs = [0]; if (boid.position.x < margin) xs.push(p.width); if (boid.position.x > p.width - margin) xs.push(-p.width);
+      const ys = [0]; if (boid.position.y < margin) ys.push(p.height); if (boid.position.y > p.height - margin) ys.push(-p.height);
+      for (const ox of xs) for (const oy of ys) renderer.render(p, boid.position.x+ox, boid.position.y+oy, boid.heading, renderParams);
+    }
+
+    if (state.debug && flock) drawDebug(p);
+
+    hud.innerHTML = `${Math.round(p.frameRate())} fps &nbsp;·&nbsp; ${flock?flock.boids.length:0} fish` +
+      (state.paused ? ' &nbsp;·&nbsp; <b>paused</b>' : '');
+  };
+
+  function drawDebug(p) {
+    p.push(); p.noFill(); p.strokeWeight(1);
+    for (const b of flock.boids) {
+      p.stroke(120,120,120,45); p.circle(b.position.x, b.position.y, PHYSICS_CONFIG.PERCEPTION_RADIUS*2); // perception
+      if (Math.abs(b.angularVelocity) > 1e-4) {                                                            // turn-radius circle
+        const s = Math.sign(b.angularVelocity), na = b.heading + s*Math.PI/2;
+        p.stroke(210,90,60,55); p.circle(b.position.x+Math.cos(na)*b.turnRadius, b.position.y+Math.sin(na)*b.turnRadius, b.turnRadius*2);
+      }
+      p.stroke(40,120,200,200); p.strokeWeight(2);                                                          // heading
+      p.line(b.position.x, b.position.y, b.position.x+Math.cos(b.heading)*34, b.position.y+Math.sin(b.heading)*34);
+      p.strokeWeight(1); p.stroke(0,0,0,120); p.point(b.position.x, b.position.y);
+    }
+    p.pop();
+  }
+
+  // condition buttons that need the flock
+  document.getElementById('cluster').addEventListener('click', () => {
+    if (!flock) return; const cx=p.width/2, cy=p.height/2;
+    for (const b of flock.boids) { b.position.x = cx + p.random(-70,70); b.position.y = cy + p.random(-70,70); }
+  });
+  document.getElementById('scatter').addEventListener('click', () => {
+    if (!flock) return; for (const b of flock.boids) { b.position.x = p.random(p.width); b.position.y = p.random(p.height); }
+  });
+  document.getElementById('respawn').addEventListener('click', () => buildFlock(p));
+}, document.getElementById('stage'));
+</script>
+</body>
+</html>

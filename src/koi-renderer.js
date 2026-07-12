@@ -15,7 +15,7 @@ import { RENDERING_CONFIG } from './rendering-config.js';
 // ½·L²·turnRate. The same bend continues into the tail (extendBodyWithTail), so the whole
 // fish is one arc and the tail can't detach. `match` dials the drama; `maxBodyFrac` caps the
 // tail so it can't swing past that fraction of a body length on very tight turns.
-const KOI_BEND = { match: 0.3, maxUnits: 7 };
+export const KOI_BEND = { match: 0.3, maxUnits: 7 };
 function koiBend(turnRate, sizeScale) {
     const match = KOI_BEND.match;
     // Bend lives in SVG units (the deform adds it to the vertex y, THEN scales by sizeScale),

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wooj-koi — koi viewer</title>
+<style>
+  :root { --bg:#f4f0e6; --panel:#1c1a17; --ink:#e8e2d6; --muted:#9a9488; --line:#33302b; --accent:#d98b6a; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #app { display:flex; height:100vh; }
+  #stage { position:relative; flex:1; background:var(--bg); overflow:hidden; }
+  #hud { position:absolute; top:10px; left:12px; font-size:12px; color:#7a746a;
+         background:rgba(244,240,230,.7); padding:6px 9px; border-radius:6px; pointer-events:none; }
+  aside { width:320px; background:var(--panel); color:var(--ink); overflow-y:auto; padding:14px 14px 40px; border-left:1px solid #000; }
+  nav { display:flex; gap:8px; margin-bottom:12px; }
+  nav a { font-size:11px; color:var(--muted); text-decoration:none; border:1px solid var(--line); padding:4px 9px; border-radius:5px; }
+  nav a.on { color:#241; background:var(--accent); border-color:var(--accent); }
+  h1 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin:2px 0 10px; color:var(--accent); }
+  h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:16px 0 6px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .seg { display:flex; gap:6px; margin-bottom:8px; }
+  .seg button { flex:1; }
+  .row { display:grid; grid-template-columns:1fr 46px; gap:6px; align-items:center; margin:5px 0; }
+  .row label { font-size:11.5px; } .row .val { font-size:11px; color:var(--accent); text-align:right; }
+  input[type=range] { grid-column:1 / -1; width:100%; accent-color:var(--accent); height:16px; margin:0; }
+  select, button { font-family:inherit; font-size:11px; background:#2a2723; color:var(--ink); border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; }
+  select { width:100%; }
+  .btns { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  button.primary { background:var(--accent); color:#241; border-color:var(--accent); }
+  label.chk { font-size:11.5px; display:flex; gap:6px; align-items:center; margin:6px 0; }
+  .note { font-size:10.5px; color:var(--muted); margin-top:8px; line-height:1.4; }
+  #cfg { font-size:10.5px; color:#cfc8ba; background:#0f0e0c; border:1px solid var(--line); border-radius:5px; padding:8px; margin-top:8px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><div id="hud"></div></div>
+  <aside>
+    <nav><a href="./index.html">flock tester</a><a href="./koi.html" class="on">koi viewer</a></nav>
+    <h1>koi viewer</h1>
+    <div class="seg">
+      <button id="mGallery" class="primary">gallery (all varieties)</button>
+      <button id="mInspect">inspect one</button>
+    </div>
+
+    <div id="galleryCtl">
+      <h2>gallery</h2>
+      <label class="chk"><input id="gAnimate" type="checkbox" checked> animate wiggle</label>
+      <div class="btns"><button id="gReroll">reroll patterns</button></div>
+      <div class="note">Every variety (weighted spawn share in parens is the population weight). Each is a fresh random pattern — reroll for new ones.</div>
+    </div>
+
+    <div id="inspectCtl" style="display:none">
+      <h2>variety</h2>
+      <select id="variety"></select>
+      <div class="btns">
+        <button id="rPattern">reroll pattern</button>
+        <button id="rAll" class="primary">randomize koi</button>
+      </div>
+      <h2>config</h2>
+      <div class="row"><label>size (× )</label><span class="val" id="vSize"></span><input id="size" type="range" min="0.6" max="1.4" step="0.02"></div>
+      <div class="row"><label>length (× )</label><span class="val" id="vLen"></span><input id="len" type="range" min="0.85" max="1.25" step="0.02"></div>
+      <div class="row"><label>tail length</label><span class="val" id="vTail"></span><input id="tail" type="range" min="0.9" max="1.8" step="0.05"></div>
+      <div class="row"><label>bend (turnRate)</label><span class="val" id="vTurn"></span><input id="turn" type="range" min="-0.015" max="0.015" step="0.0005"></div>
+      <div class="row"><label>wave amplitude</label><span class="val" id="vAmp"></span><input id="amp" type="range" min="0" max="2" step="0.05"></div>
+      <label class="chk"><input id="iAnimate" type="checkbox" checked> animate wiggle</label>
+      <div id="cfg"></div>
+      <div class="note">bend shows the body at a fixed turn curvature (radius = 1/turnRate). "randomize koi" rolls a weighted variety + pattern + size/length/tail like the flock does.</div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+<script type="module">
+import { KoiRenderer } from '../src/koi-renderer.js';
+import { BrushTextures } from '../src/brush-textures.js';
+import { SVGParser } from '../src/svg-parser.js';
+import { DEFAULT_SHAPE_PARAMS } from '../src/koi-params.js';
+import { VARIETIES, selectVariety, generatePattern } from '../src/koi-varieties.js';
+
+const BASE = '../koi';
+const svgVertices = { body:null, tail:null, head:null, pectoralFin:null, dorsalFin:null, ventralFin:null };
+const imgs = { body:null, fin:null, tail:null, spots:[], paper:null };
+function mulberry32(s){let a=s>>>0;return()=>{a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+
+let renderer, P, mode = 'gallery';
+let galleryPatterns = [];            // one pattern per variety
+const state = { gAnimate:true, iAnimate:true };
+// inspector fish
+const fish = { variety:VARIETIES[0], pattern:null, size:1, length:1, tail:1.3, turn:0, amp:0.55 };
+
+function rollGallery() {
+  galleryPatterns = VARIETIES.map((v, i) => generatePattern(v, mulberry32(1000 + i * 7), Math.floor));
+}
+function renderKoi(p, x, y, sizeScale, f, waveTime, turnRate) {
+  renderer.render(p, x, y, 0, {
+    shapeParams: DEFAULT_SHAPE_PARAMS, colorParams: f.variety.base, pattern: f.pattern,
+    animationParams: { waveTime, sizeScale, waveAmplitudeScale: f.amp ?? 0.55,
+      lengthMultiplier: f.length ?? 1, tailLength: f.tail ?? 1.3, turnRate: turnRate ?? 0 },
+    modifiers: { brightnessBoost:0, saturationBoost:0, sizeScale:1 },
+    boidSeed: 7, svgVertices,
+  });
+}
+
+// ---- inspector controls ----
+const sel = document.getElementById('variety');
+VARIETIES.forEach((v, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${v.name}  (${v.weight})`; sel.appendChild(o); });
+const bind = (id, key, valId, dec) => {
+  const inp = document.getElementById(id), val = document.getElementById(valId);
+  const show = () => val.textContent = Number(fish[key]).toFixed(dec);
+  inp.addEventListener('input', () => { fish[key] = parseFloat(inp.value); show(); });
+  return { inp, show };
+};
+const ctl = { size:bind('size','size','vSize',2), len:bind('len','length','vLen',2), tail:bind('tail','tail','vTail',2), turn:bind('turn','turn','vTurn',4), amp:bind('amp','amp','vAmp',2) };
+function syncInspectUI() {
+  sel.value = VARIETIES.indexOf(fish.variety);
+  ctl.size.inp.value = fish.size; ctl.len.inp.value = fish.length; ctl.tail.inp.value = fish.tail;
+  ctl.turn.inp.value = fish.turn; ctl.amp.inp.value = fish.amp;
+  Object.values(ctl).forEach(c => c.show());
+  document.getElementById('cfg').textContent =
+    `variety: ${fish.variety.name}\nbase HSB: ${fish.variety.base.h},${fish.variety.base.s},${fish.variety.base.b}\n` +
+    `spots: ${fish.pattern?.spots.length ?? 0}\nsize ${fish.size.toFixed(2)}  length ${fish.length.toFixed(2)}  tail ${fish.tail.toFixed(2)}`;
+}
+sel.addEventListener('change', () => { fish.variety = VARIETIES[+sel.value]; fish.pattern = generatePattern(fish.variety, Math.random, Math.floor); syncInspectUI(); });
+document.getElementById('rPattern').addEventListener('click', () => { fish.pattern = generatePattern(fish.variety, Math.random, Math.floor); syncInspectUI(); });
+document.getElementById('rAll').addEventListener('click', () => {
+  fish.variety = selectVariety(Math.random);
+  fish.pattern = generatePattern(fish.variety, Math.random, Math.floor);
+  fish.size = 0.6 + Math.random()*0.8; fish.length = 0.85 + Math.random()*0.4; fish.tail = 0.9 + Math.random()*0.9;
+  syncInspectUI();
+});
+document.getElementById('iAnimate').addEventListener('change', e => state.iAnimate = e.target.checked);
+document.getElementById('gAnimate').addEventListener('change', e => state.gAnimate = e.target.checked);
+document.getElementById('gReroll').addEventListener('click', rollGallery);
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('galleryCtl').style.display = m === 'gallery' ? '' : 'none';
+  document.getElementById('inspectCtl').style.display = m === 'inspect' ? '' : 'none';
+  document.getElementById('mGallery').className = m === 'gallery' ? 'primary' : '';
+  document.getElementById('mInspect').className = m === 'inspect' ? 'primary' : '';
+  if (m === 'inspect' && !fish.pattern) { fish.pattern = generatePattern(fish.variety, Math.random, Math.floor); syncInspectUI(); }
+}
+document.getElementById('mGallery').addEventListener('click', () => setMode('gallery'));
+document.getElementById('mInspect').addEventListener('click', () => setMode('inspect'));
+
+function stageSize(){ const s = document.getElementById('stage'); return [s.clientWidth, s.clientHeight]; }
+
+new p5((p) => {
+  P = p;
+  p.preload = async function () {
+    imgs.body = p.loadImage(`${BASE}/brushstrokes/body-processed.png`);
+    imgs.fin  = p.loadImage(`${BASE}/brushstrokes/fin.png`);
+    imgs.tail = p.loadImage(`${BASE}/brushstrokes/tail.png`);
+    imgs.spots = [1,2,3,4,5].map(n => p.loadImage(`${BASE}/brushstrokes/spot-${n}-processed.png`));
+    imgs.paper = p.loadImage(`${BASE}/brushstrokes/paper.png`);
+    svgVertices.body = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/body.svg`, 20, { width:16, height:5.2 });
+    svgVertices.tail = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/tail.svg`, 20, { width:6, height:4 });
+    svgVertices.head = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/head.svg`, 20, { width:7.5, height:5.0 });
+    svgVertices.pectoralFin = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/pectoral-fin.svg`, 20, { width:4.5, height:2 });
+    svgVertices.dorsalFin = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/dorsal-fin.svg`, 20, { width:4, height:5 });
+    svgVertices.ventralFin = await SVGParser.loadSVGFromURL(`${BASE}/body-parts/ventral-fin.svg`, 20, { width:3, height:1.5 });
+  };
+  p.setup = function () {
+    const [w, h] = stageSize(); const c = p.createCanvas(w, h); c.parent('stage');
+    const bt = new BrushTextures(); bt.loadImages(imgs); bt.setP5Instance(p);
+    renderer = new KoiRenderer(bt);
+    rollGallery();
+    setMode(new URLSearchParams(location.search).get('mode') === 'inspect' ? 'inspect' : 'gallery');
+  };
+  p.windowResized = function () { const [w, h] = stageSize(); p.resizeCanvas(w, h); };
+
+  let t = 0;
+  const hud = document.getElementById('hud');
+  p.draw = function () {
+    p.background(244,240,230);
+    if ((mode === 'gallery' && state.gAnimate) || (mode === 'inspect' && state.iAnimate)) t += 0.05;
+
+    if (mode === 'gallery') {
+      const n = VARIETIES.length;
+      const cols = Math.max(3, Math.floor(p.width / 230));
+      const rows = Math.ceil(n / cols);
+      const cw = p.width / cols, ch = p.height / rows;
+      const sizeScale = Math.min(cw, ch) / 26;
+      p.textAlign(p.CENTER); p.textSize(11); p.fill(90);
+      for (let i = 0; i < n; i++) {
+        const col = i % cols, row = Math.floor(i / cols);
+        const cx = col*cw + cw/2, cy = row*ch + ch*0.44;
+        renderKoi(p, cx, cy, sizeScale, { variety:VARIETIES[i], pattern:galleryPatterns[i], length:1, tail:1.3, amp:0.55 }, t + i, 0);
+        p.fill(90); p.noStroke(); p.text(VARIETIES[i].name, cx, row*ch + ch*0.86);
+      }
+      hud.textContent = `${n} varieties · ${cols}×${rows}`;
+    } else {
+      const sizeScale = fish.size * (Math.min(p.width, p.height) / 19);
+      renderKoi(p, p.width/2, p.height/2, sizeScale, fish, t, fish.turn);
+      const r = fish.turn !== 0 ? Math.round(1/Math.abs(fish.turn)) : '∞';
+      hud.textContent = `${fish.variety.name} · turn radius ≈ ${r}px`;
+    }
+  };
+}, document.getElementById('stage'));
+</script>
+</body>
+</html>
