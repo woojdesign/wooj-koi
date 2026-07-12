@@ -294,19 +294,17 @@ export class KoiRenderer {
             dorsalFin: null, // Don't draw dorsal fin yet
             ventralFin: svgVertices.ventralFin
         });
-        // The tail is drawn as an EXTENSION of the body outline: extra segments continue
-        // the body's bent centerline and a fan is spliced into the body's vertex loop, so
-        // the whole fish is one shape over one centerline and the tail can't detach. Only
-        // the procedural fallback (no body SVG) uses the old separate drawTail.
+        // The caudal fin is a SEPARATE shape, pinned + rotated at the body-end tangent (drawn
+        // BEHIND the body so the wrist tucks under it), so it's a distinct trailing fin rather
+        // than a continuation of the body outline. It stays attached because it's placed at the
+        // body's actual arc-end point with the body's exit tangent.
         const hasBodySvg = svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0;
-        const ext = hasBodySvg ? this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength) : null;
+        if (show.tail && hasBodySvg) {
+            this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, hue, saturation, brightness);
+        }
         if (show.body) {
             if (hasBodySvg) {
-                if (show.tail) {
-                    this.drawBodyFromSVG(context, ext.segments, ext.verts, shapeParams, finalSizeScale, hue, saturation, brightness);
-                } else {
-                    this.drawBodyFromSVG(context, segmentPositions, svgVertices.body, shapeParams, finalSizeScale, hue, saturation, brightness); // body only, no tail
-                }
+                this.drawBodyFromSVG(context, segmentPositions, svgVertices.body, shapeParams, finalSizeScale, hue, saturation, brightness);
             } else {
                 this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, curvature);
                 this.drawBody(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness);
@@ -338,9 +336,45 @@ export class KoiRenderer {
         });
 
         // Debug: the deformer skeleton (spine centerline + rib normals) over the fish.
-        if (show.skeleton) this.drawSkeleton(context, (show.tail && ext) ? ext.segments : segmentPositions, finalSizeScale);
+        if (show.skeleton) this.drawSkeleton(context, segmentPositions, finalSizeScale);
 
         // Restore graphics state
+        context.pop();
+    }
+
+    /**
+     * Draw the caudal fin as a SEPARATE shape, pinned at the body's arc-end point and rotated
+     * to the body's exit tangent (with a gentle flap). Because it's placed at the real end
+     * point + tangent, it stays attached without being part of the body's deforming outline.
+     */
+    drawPinnedTail(context, bodySegments, sizeScale, tailLength, waveTime, waveAmplitudeScale, hue, saturation, brightness) {
+        const n = bodySegments.length;
+        if (n < 2) return;
+        const end = bodySegments[n - 1], prev = bodySegments[n - 2];
+        const ax = end.x, ay = end.y * sizeScale;                                    // body-end point (drawn px)
+        const tangent = Math.atan2((end.y - prev.y) * sizeScale, end.x - prev.x);     // toward the tail (backward)
+        const flap = Math.sin(waveTime - ANIMATION_CONFIG.wave.phaseGradient) *
+                     ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale * 0.03;     // gentle stiff-fin flap
+        // Forked caudal fan (SVG units), wrist at local origin, lobes extending -x.
+        const tailScale = Math.min(1, 0.55 + 0.45 * (tailLength - 0.9) / 0.9);
+        const r = 7.5 * tailScale, f = 3.6 * tailScale;
+        const fan = [
+            { x: 0,          y: +f * 0.35 },
+            { x: -r * 0.65,  y: +f },
+            { x: -r * 0.75,  y: +f * 0.4 },
+            { x: -r * 0.55,  y: 0 },          // center notch (fork)
+            { x: -r * 0.75,  y: -f * 0.4 },
+            { x: -r * 0.65,  y: -f },
+            { x: 0,          y: -f * 0.35 },
+        ];
+        context.push();
+        context.translate(ax, ay);
+        context.rotate(tangent - Math.PI + flap); // fan's local -x aligns with the body's exit tangent
+        this.drawSVGShape(context, fan, {
+            deformationType: 'static', deformationParams: {},
+            positionX: 0, positionY: 0, rotation: 0, scale: sizeScale,
+            hue, saturation, brightness, opacity: RENDERING_CONFIG.opacity.tail, mirror: 'none'
+        });
         context.pop();
     }
 
