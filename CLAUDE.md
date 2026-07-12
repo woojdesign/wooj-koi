@@ -54,10 +54,14 @@ re-enable it, but if a URL starts 302'ing to `vercel.com/sso-api`, that's the to
   dials as JSON — that's how a tuning comes back to get baked into the source.
 - `tester/koi.html` — variety gallery (all 26 from `VARIETIES`) + single-koi inspector
   (variety, reroll pattern, randomize, size/length/tail/bend/wave). `?mode=inspect`.
-- `tester/turn.html` — turn tuner: ONE koi chasing an orbiting (or pointer) target so it
-  turns continuously, with just the turning dials + bend, a turn-radius overlay + path trail,
-  and a HUD reading the design vs actual turn radius in body-lengths. Renders at the site's
-  9.9 scale so the radius-to-body ratio matches production. For dialling turning in isolation.
+- `tester/turn.html` — RAIL tuner: ONE koi glued to a path (circle / weave / straight) at a
+  known curvature — no flocking, no chase — driven analytically (`railStep`), so the body
+  deformation + wiggle are tuned directly against the geometry. Passes the curvature to the
+  renderer as `turnRate` (optionally through the same `BEND_SMOOTHING` EMA as the package;
+  toggle "smooth bend" off for the instant/raw bend). Exposes only bend + wiggle dials; the
+  physics turning knobs live in the flock tester. Renders at the site's 9.9 scale so the
+  radius-to-body ratio matches production. (Chase-a-target was dropped — it tracked too
+  loosely to tune the animation.)
 - Needed `export const KOI_BEND` in `koi-renderer.js` so the tester can tune it live (was
   module-private). Harmless additive export.
 

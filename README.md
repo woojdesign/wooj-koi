@@ -69,9 +69,10 @@ npm run tester          # serves the repo on :8123
 - **Koi viewer** (`tester/koi.html`) — a gallery of all 26 varieties, and an inspector for a
   single koi (pick a variety, reroll its pattern, randomize a fish, and scrub size / length /
   tail / bend / wave). `?mode=inspect` opens straight to the inspector.
-- **Turn tuner** (`tester/turn.html`) — one koi chasing an orbiting (or pointer) target so it
-  turns continuously, with just the turning + bend dials, a turn-radius overlay and path
-  trail, and a HUD reading the turn radius in body-lengths. For dialling turning in isolation.
+- **Rail tuner** (`tester/turn.html`) — one koi glued to a path (circle / weave / straight) at
+  a known curvature, so you can tune the body bend + wiggle directly against the geometry
+  (no flocking, no chase). Bend + wiggle dials, a rail/heading overlay, and a HUD reading the
+  radius in body-lengths and the drawn bend.
 
 ## Tuning
 

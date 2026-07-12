@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>wooj-koi — turn tuner</title>
+<title>wooj-koi — rail tuner</title>
 <style>
   :root { --bg:#f4f0e6; --panel:#1c1a17; --ink:#e8e2d6; --muted:#9a9488; --line:#33302b; --accent:#d98b6a; }
   * { box-sizing:border-box; }
@@ -18,15 +18,16 @@
   nav a.on { color:#241; background:var(--accent); border-color:var(--accent); }
   h1 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; margin:2px 0 10px; color:var(--accent); }
   h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:16px 0 6px; border-bottom:1px solid var(--line); padding-bottom:4px; }
-  .row { display:grid; grid-template-columns:1fr 50px; gap:6px; align-items:center; margin:5px 0; }
+  .row { display:grid; grid-template-columns:1fr 54px; gap:6px; align-items:center; margin:5px 0; }
   .row label { font-size:11.5px; } .row .val { font-size:11px; color:var(--accent); text-align:right; }
   input[type=range] { grid-column:1 / -1; width:100%; accent-color:var(--accent); height:16px; margin:0; }
-  .conds { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; }
+  select { width:100%; font-family:inherit; font-size:11px; background:#2a2723; color:var(--ink); border:1px solid var(--line); border-radius:5px; padding:5px 8px; }
+  .conds { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; margin:6px 0; }
   .conds label { font-size:11.5px; display:flex; gap:5px; align-items:center; }
   button { font-family:inherit; font-size:11px; background:#2a2723; color:var(--ink); border:1px solid var(--line); border-radius:5px; padding:5px 9px; cursor:pointer; }
   button.primary { background:var(--accent); color:#241; border-color:var(--accent); }
   .btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  textarea { width:100%; height:120px; margin-top:8px; background:#0f0e0c; color:#cfc8ba; border:1px solid var(--line); border-radius:5px; font-family:inherit; font-size:10.5px; padding:8px; }
+  textarea { width:100%; height:110px; margin-top:8px; background:#0f0e0c; color:#cfc8ba; border:1px solid var(--line); border-radius:5px; font-family:inherit; font-size:10.5px; padding:8px; }
   .note { font-size:10.5px; color:var(--muted); margin-top:6px; line-height:1.4; }
 </style>
 </head>
@@ -34,66 +35,66 @@
 <div id="app">
   <div id="stage"><div id="hud"></div></div>
   <aside>
-    <nav><a href="./index.html">flock</a><a href="./koi.html">koi viewer</a><a href="./turn.html" class="on">turn tuner</a></nav>
-    <h1>turn tuner</h1>
-    <h2>target</h2>
-    <div class="conds">
-      <label><input id="mOrbit" type="radio" name="mode" checked> orbit</label>
-      <label><input id="mPointer" type="radio" name="mode"> pointer</label>
-    </div>
-    <div class="row"><label>orbit radius</label><span class="val" id="vOrbitR"></span><input id="orbitR" type="range" min="60" max="420" step="5"></div>
-    <div class="row"><label>orbit speed</label><span class="val" id="vOrbitS"></span><input id="orbitS" type="range" min="0.002" max="0.05" step="0.001"></div>
+    <nav><a href="./index.html">flock</a><a href="./koi.html">koi viewer</a><a href="./turn.html" class="on">rail tuner</a></nav>
+    <h1>rail tuner</h1>
+    <div class="note">The koi is glued to a path at a known curvature — no flocking, no chase. Tune the body deformation + wiggle directly against the geometry.</div>
+    <h2>rail</h2>
+    <select id="railType">
+      <option value="circle">circle (constant turn)</option>
+      <option value="weave">weave (S-curve — tests transitions)</option>
+      <option value="straight">straight (wiggle only)</option>
+    </select>
+    <div class="row" id="rowRadius"><label>circle radius</label><span class="val" id="vRadius"></span><input id="radius" type="range" min="40" max="520" step="5"></div>
+    <div class="row" id="rowAmp"><label>weave amplitude</label><span class="val" id="vAmp2"></span><input id="amp" type="range" min="20" max="300" step="5"></div>
+    <div class="row" id="rowWave"><label>weave wavelength</label><span class="val" id="vWave"></span><input id="wave" type="range" min="120" max="900" step="10"></div>
+    <div class="row"><label>speed (px/frame)</label><span class="val" id="vSpeed"></span><input id="speed" type="range" min="0.05" max="3" step="0.05"></div>
     <div class="row"><label>fish size (× )</label><span class="val" id="vSize"></span><input id="size" type="range" min="0.6" max="1.4" step="0.05"></div>
     <div class="row"><label>view zoom</label><span class="val" id="vZoom"></span><input id="zoom" type="range" min="0.6" max="3" step="0.1"></div>
-    <div class="conds" style="margin-top:8px">
-      <label><input id="trails" type="checkbox" checked> path trail</label>
+    <div class="conds">
+      <label><input id="cw" type="checkbox"> reverse (CW)</label>
+      <label><input id="smooth" type="checkbox" checked> smooth bend</label>
+    </div>
+    <div class="conds">
+      <label><input id="railShow" type="checkbox" checked> show rail</label>
       <label><input id="overlay" type="checkbox" checked> overlay</label>
+      <label><input id="trails" type="checkbox"> trail</label>
       <label><input id="pause" type="checkbox"> pause</label>
     </div>
     <div id="dials"></div>
-    <div class="btns" style="margin-top:12px">
-      <button id="reset">reset</button>
-      <button id="export" class="primary">export turning</button>
-    </div>
-    <textarea id="out" placeholder="export → the turning dials as JSON. Paste back to me to bake in."></textarea>
-    <div class="note">One koi chasing a target, driving the real turn code. Read the turn radius (in body-lengths) off the HUD; the red circle is the arc it's tracing.</div>
+    <div class="btns" style="margin-top:12px"><button id="reset">reset</button><button id="export" class="primary">export</button></div>
+    <textarea id="out" placeholder="export → bend + wiggle dials as JSON. Paste back to me to bake in."></textarea>
   </aside>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
 <script type="module">
-import { FlockManager } from '../src/flock-manager.js';
 import { KoiRenderer, KOI_BEND } from '../src/koi-renderer.js';
 import { BrushTextures } from '../src/brush-textures.js';
 import { SVGParser } from '../src/svg-parser.js';
 import { DEFAULT_SHAPE_PARAMS } from '../src/koi-params.js';
 import { PHYSICS_CONFIG } from '../src/physics-config.js';
+import { ANIMATION_CONFIG } from '../src/animation-config.js';
 
 const BASE = '../koi';
-const RENDER_SCALE = 9.9;   // desktop scale — keeps radius-to-body ratio the same as the site
+const RENDER_SCALE = 9.9;               // desktop scale → radius-to-body ratio matches the site
 const svgVertices = { body:null, tail:null, head:null, pectoralFin:null, dorsalFin:null, ventralFin:null };
 const imgs = { body:null, fin:null, tail:null, spots:[], paper:null };
 
-const params = { numBoids:1, maxSpeed:0.6, maxForce:0.05, separationWeight:0, alignmentWeight:0, cohesionWeight:0, attractionWeight:1.5 };
-const view = { mode:'orbit', orbitR:200, orbitS:0.012, size:1, zoom:1.2, trails:true, overlay:true, paused:false };
-const TARGET = { phys:PHYSICS_CONFIG, params, bend:KOI_BEND };
+const rail = { type:'circle', radius:160, amp:120, wave:420, speed:0.6, size:1, zoom:1.2,
+               cw:false, smooth:true, railShow:true, overlay:true, trails:false, paused:false };
+const TARGET = { phys:PHYSICS_CONFIG, bend:KOI_BEND, wave:ANIMATION_CONFIG.wave };
 
 const DIALS = [
-  ['Turning', [
-    ['phys','TURN_RADIUS_FACTOR', 40, 300, 1,    'turn radius factor'],
-    ['phys','MAX_TURN_RATE',      0.004, 0.04, 0.001, 'max turn rate (ceiling)'],
-    ['phys','TURN_RESPONSIVENESS',0.02, 0.5, 0.01,  'turn responsiveness'],
-    ['phys','TURN_DEADZONE',      0, 0.2, 0.004,     'turn dead-zone (rad)'],
-    ['phys','ANGVEL_SMOOTHING',   0.02, 0.5, 0.01,  'turn-rate smoothing'],
-  ]],
   ['Body bend', [
-    ['bend','match',              0, 1, 0.02,        'bend match'],
-    ['phys','BEND_SMOOTHING',     0.01, 0.3, 0.005,  'bend smoothing'],
+    ['bend','match',          0, 1, 0.02,   'bend match (arc)'],
+    ['bend','maxUnits',       1, 12, 0.5,   'bend cap (units)'],
+    ['phys','BEND_SMOOTHING', 0.01, 0.3, 0.005, 'bend smoothing'],
   ]],
-  ['Speed / chase', [
-    ['params','maxSpeed',         0.1, 2, 0.05,      'max speed'],
-    ['phys','MIN_SPEED_FRACTION', 0, 1, 0.05,        'min speed fraction'],
-    ['params','attractionWeight', 0, 3, 0.1,         'target attraction'],
+  ['Wiggle', [
+    ['wave','amplitude',      0, 2, 0.05,   'wave amplitude'],
+    ['phys','WAVE_RATE',      0.02, 0.4, 0.01, 'wave rate (× speed)'],
+    ['wave','phaseGradient',  0.5, 6, 0.1,  'wave phase gradient'],
+    ['wave','dampening',      0, 0.6, 0.02, 'wave dampening → tail'],
   ]],
 ];
 const DEFAULTS = {}; DIALS.forEach(([,r]) => r.forEach(([o,k]) => DEFAULTS[o+'.'+k] = TARGET[o][k]));
@@ -108,48 +109,56 @@ DIALS.forEach(([g, rows]) => {
     const val = document.createElement('span'); val.className = 'val';
     const inp = document.createElement('input'); inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = TARGET[obj][key];
     const d = dec(step); const show = () => val.textContent = Number(TARGET[obj][key]).toFixed(d);
-    inp.addEventListener('input', () => { TARGET[obj][key] = parseFloat(inp.value); show(); refreshRadius(); });
+    inp.addEventListener('input', () => { TARGET[obj][key] = parseFloat(inp.value); show(); });
     show(); row.append(lab, val, inp); dialsEl.appendChild(row); els[obj+'.'+key] = { inp, show };
   });
 });
 
-// view controls
-const vbind = (id, key, valId, d, after) => { const inp = document.getElementById(id), val = document.getElementById(valId);
-  const show = () => val.textContent = Number(view[key]).toFixed(d);
-  inp.value = view[key]; show(); inp.addEventListener('input', () => { view[key] = parseFloat(inp.value); show(); after && after(); });
-};
-vbind('orbitR','orbitR','vOrbitR',0); vbind('orbitS','orbitS','vOrbitS',3); vbind('size','size','vSize',2, refreshRadius); vbind('zoom','zoom','vZoom',1);
-document.getElementById('mOrbit').addEventListener('change', () => view.mode = 'orbit');
-document.getElementById('mPointer').addEventListener('change', () => view.mode = 'pointer');
-['trails','overlay','pause'].forEach(id => document.getElementById(id).addEventListener('change', e => view[id] = e.target.checked));
-document.getElementById('reset').addEventListener('click', () => {
-  Object.entries(DEFAULTS).forEach(([k,v]) => { const [o,key] = k.split('.'); TARGET[o][key] = v; els[k].inp.value = v; els[k].show(); }); refreshRadius();
-});
+const vbind = (id, key, valId, d) => { const inp = document.getElementById(id), val = document.getElementById(valId);
+  const show = () => val.textContent = Number(rail[key]).toFixed(d); inp.value = rail[key]; show();
+  inp.addEventListener('input', () => { rail[key] = parseFloat(inp.value); show(); }); };
+vbind('radius','radius','vRadius',0); vbind('amp','amp','vAmp2',0); vbind('wave','wave','vWave',0);
+vbind('speed','speed','vSpeed',2); vbind('size','size','vSize',2); vbind('zoom','zoom','vZoom',1);
+const railType = document.getElementById('railType');
+function syncRailRows() {
+  document.getElementById('rowRadius').style.display = rail.type==='circle' ? '' : 'none';
+  document.getElementById('rowAmp').style.display = rail.type==='weave' ? '' : 'none';
+  document.getElementById('rowWave').style.display = rail.type==='weave' ? '' : 'none';
+}
+railType.addEventListener('change', () => { rail.type = railType.value; syncRailRows(); resetPath(); }); syncRailRows();
+['cw','smooth','railShow','overlay','trails','pause'].forEach(id => document.getElementById(id).addEventListener('change', e => rail[id] = e.target.checked));
+document.getElementById('reset').addEventListener('click', () => { Object.entries(DEFAULTS).forEach(([k,v]) => { const [o,key]=k.split('.'); TARGET[o][key]=v; els[k].inp.value=v; els[k].show(); }); });
 document.getElementById('export').addEventListener('click', () => {
   const out = {};
-  DIALS.forEach(([,rows]) => rows.forEach(([o,k]) => { if (o!=='params') out[k] = { value:+TARGET[o][k].toFixed(6), changed: TARGET[o][k]!==DEFAULTS[o+'.'+k] }; }));
+  DIALS.forEach(([,rows]) => rows.forEach(([o,k]) => out[k] = { value:+TARGET[o][k].toFixed(6), changed: TARGET[o][k]!==DEFAULTS[o+'.'+k] }));
   const txt = JSON.stringify(out, null, 2); document.getElementById('out').value = txt; navigator.clipboard?.writeText(txt).catch(()=>{});
 });
 
-let designRadiusTxt = '';
-function refreshRadius() {
-  const bodyLen = 16 * RENDER_SCALE * view.size;
-  const r = PHYSICS_CONFIG.TURN_RADIUS_FACTOR * view.size; // lengthMultiplier = 1 here
-  designRadiusTxt = `design turn radius: ${r.toFixed(0)}px  =  ${(r/bodyLen).toFixed(2)} body-lengths`;
-}
-refreshRadius();
-
 function stageSize(){ const s = document.getElementById('stage'); return [s.clientWidth, s.clientHeight]; }
-let flock, renderer, boid; const trail = [];
-function buildFish(p) {
-  const tempVec = p.createVector(0,0);
-  flock = new FlockManager(1, p.width, p.height, { random:(...a)=>p.random(...a), createVector:(...a)=>p.createVector(...a), floor:(...a)=>p.floor(...a), p5Instance:{ Vector: tempVec.constructor } });
-  boid = flock.boids[0];
-  boid.independenceChance = 0;                 // never break off — always chase the target
-  boid.sizeMultiplier = view.size; boid.lengthMultiplier = 1; boid.tailLength = 1.3; boid.speedMultiplier = 1;
-  boid.turnRadius = PHYSICS_CONFIG.TURN_RADIUS_FACTOR * boid.sizeMultiplier * boid.lengthMultiplier;
-  boid.position.x = p.width/2 + 160; boid.position.y = p.height/2;
-  trail.length = 0;
+let renderer, phi = 0, railX = 0, renderCurv = 0, wavePhase = 0; const trail = [];
+function resetPath(){ phi = 0; railX = 0; trail.length = 0; }
+
+// advance the rail one step; returns { x, y, heading, curvature }
+function railStep(p) {
+  const cx = p.width/2, cy = p.height/2, dir = rail.cw ? -1 : 1, spd = rail.speed;
+  if (rail.type === 'circle') {
+    const R = rail.radius; phi += dir * spd / R;
+    const x = cx + Math.cos(phi)*R, y = cy + Math.sin(phi)*R;
+    const vx = -Math.sin(phi)*dir, vy = Math.cos(phi)*dir;   // tangent
+    return { x, y, heading: Math.atan2(vy, vx), curvature: dir / R };
+  }
+  if (rail.type === 'weave') {
+    railX += spd; if (railX > p.width + 40) { railX = -40; trail.length = 0; }
+    const k = 2*Math.PI / rail.wave, A = rail.amp;
+    const y = cy + A*Math.sin(railX*k);
+    const dydx = A*k*Math.cos(railX*k);
+    const d2 = -A*k*k*Math.sin(railX*k);
+    const curvature = d2 / Math.pow(1 + dydx*dydx, 1.5);
+    return { x: railX, y, heading: Math.atan2(dydx, 1), curvature };
+  }
+  // straight
+  railX += spd; if (railX > p.width + 40) { railX = -40; trail.length = 0; }
+  return { x: railX, y: cy, heading: 0, curvature: 0 };
 }
 
 new p5((p) => {
@@ -166,57 +175,54 @@ new p5((p) => {
   p.setup = function () {
     const [w,h] = stageSize(); const c = p.createCanvas(w,h); c.parent('stage');
     const bt = new BrushTextures(); bt.loadImages(imgs); bt.setP5Instance(p); renderer = new KoiRenderer(bt);
-    buildFish(p);
+    resetPath();
   };
-  p.windowResized = function () { const [w,h] = stageSize(); p.resizeCanvas(w,h); if (flock){ flock.width=w; flock.height=h; } };
+  p.windowResized = function () { const [w,h] = stageSize(); p.resizeCanvas(w,h); };
 
-  let t = 0, curvEMA = 0; const hud = document.getElementById('hud');
+  let cur = null; const hud = document.getElementById('hud');
   p.draw = function () {
     p.background(244,240,230);
-    // keep the fish size in sync live
-    if (boid && boid.sizeMultiplier !== view.size) { boid.sizeMultiplier = view.size; boid.turnRadius = PHYSICS_CONFIG.TURN_RADIUS_FACTOR * view.size; }
-    const cx = p.width/2, cy = p.height/2;
-    let target = null;
-    if (view.mode === 'orbit') { t += view.orbitS; target = { x: cx + Math.cos(t)*view.orbitR, y: cy + Math.sin(t)*view.orbitR }; }
-    else { const mx = (p.mouseX - cx)/view.zoom + cx, my = (p.mouseY - cy)/view.zoom + cy; if (p.mouseX>=0&&p.mouseX<=p.width&&p.mouseY>=0&&p.mouseY<=p.height) target = { x:mx, y:my }; }
-
-    if (!view.paused && flock && target) { flock.update(params, target); trail.push({ x:boid.position.x, y:boid.position.y }); if (trail.length>240) trail.shift(); }
-
-    p.push(); p.translate(cx,cy); p.scale(view.zoom); p.translate(-cx,-cy);
-    // orbit path + target
-    if (target) {
-      if (view.mode==='orbit'){ p.noFill(); p.stroke(150,150,150,60); p.circle(cx,cy,view.orbitR*2); }
-      p.noStroke(); p.fill(210,90,60,180); p.circle(target.x,target.y,7/view.zoom);
+    if (!rail.paused || !cur) {
+      cur = railStep(p);
+      renderCurv += (cur.curvature - renderCurv) * PHYSICS_CONFIG.BEND_SMOOTHING;
+      wavePhase += rail.speed * PHYSICS_CONFIG.WAVE_RATE;
+      if (rail.trails) { trail.push({ x:cur.x, y:cur.y }); if (trail.length>260) trail.shift(); }
     }
-    // path trail
-    if (view.trails && trail.length>1) { p.noFill(); p.stroke(120,150,170,120); p.strokeWeight(1.2/view.zoom); p.beginShape(); for (const q of trail) p.vertex(q.x,q.y); p.endShape(); }
+    const cx = p.width/2, cy = p.height/2;
+    p.push(); p.translate(cx,cy); p.scale(rail.zoom); p.translate(-cx,-cy);
+
+    // the rail path
+    if (rail.railShow) {
+      p.noFill(); p.stroke(150,150,150,70); p.strokeWeight(1/rail.zoom);
+      if (rail.type==='circle') p.circle(cx, cy, rail.radius*2);
+      else if (rail.type==='weave') { const k = 2*Math.PI/rail.wave; p.beginShape(); for (let x=-40; x<=p.width+40; x+=6) p.vertex(x, cy + rail.amp*Math.sin(x*k)); p.endShape(); }
+      else { p.line(-40, cy, p.width+40, cy); }
+    }
+    if (rail.trails && trail.length>1) { p.noFill(); p.stroke(120,150,170,120); p.strokeWeight(1.2/rail.zoom); p.beginShape(); for (const q of trail) p.vertex(q.x,q.y); p.endShape(); }
+
     // the koi
-    if (boid && svgVertices.body) {
-      const sizeScale = boid.sizeMultiplier * RENDER_SCALE;
-      const speedFrac = Math.min(1, boid.speed/(params.maxSpeed*boid.speedMultiplier));
-      const ampScale = boid.sizeMultiplier*(0.4+0.6*speedFrac);
-      renderer.render(p, boid.position.x, boid.position.y, boid.heading, {
+    const turnRate = rail.smooth ? renderCurv : cur.curvature;
+    if (svgVertices.body && cur) {
+      const sizeScale = rail.size * RENDER_SCALE;
+      const speedFrac = Math.min(1, rail.speed / 0.6);
+      const ampScale = rail.size * (0.4 + 0.6*speedFrac);
+      renderer.render(p, cur.x, cur.y, cur.heading, {
         shapeParams: DEFAULT_SHAPE_PARAMS, colorParams:{ h:14, s:55, b:92 }, pattern:{ spots:[] },
-        animationParams:{ waveTime: boid.wavePhase, sizeScale, waveAmplitudeScale:ampScale, lengthMultiplier:boid.lengthMultiplier, tailLength:boid.tailLength, turnRate:boid.renderCurvature },
+        animationParams:{ waveTime: wavePhase, sizeScale, waveAmplitudeScale: ampScale, lengthMultiplier:1, tailLength:1.3, turnRate },
         modifiers:{ brightnessBoost:0, saturationBoost:0, sizeScale:1 }, boidSeed:7, svgVertices,
       });
-      // overlay: turn-radius circle + heading
-      if (view.overlay) {
-        p.noFill();
-        if (Math.abs(boid.angularVelocity) > 1e-4) { const s = Math.sign(boid.angularVelocity), na = boid.heading + s*Math.PI/2;
-          p.stroke(210,90,60,90); p.strokeWeight(1/view.zoom); p.circle(boid.position.x+Math.cos(na)*boid.turnRadius, boid.position.y+Math.sin(na)*boid.turnRadius, boid.turnRadius*2); }
-        p.stroke(40,120,200,200); p.strokeWeight(2/view.zoom);
-        p.line(boid.position.x, boid.position.y, boid.position.x+Math.cos(boid.heading)*40, boid.position.y+Math.sin(boid.heading)*40);
+      if (rail.overlay) {
+        p.stroke(40,120,200,200); p.strokeWeight(2/rail.zoom); p.noFill();
+        p.line(cur.x, cur.y, cur.x+Math.cos(cur.heading)*40, cur.y+Math.sin(cur.heading)*40);
       }
     }
     p.pop();
 
-    if (boid) {
-      const bodyLen = 16*RENDER_SCALE*boid.sizeMultiplier;
-      if (!view.paused) curvEMA += (Math.abs(boid.renderCurvature) - curvEMA) * 0.05; // rolling avg
-      const actual = curvEMA>2e-4 ? `${(1/curvEMA).toFixed(0)}px = ${((1/curvEMA)/bodyLen).toFixed(2)} body-len` : '~straight';
-      hud.textContent = `${designRadiusTxt}\nactual (avg): ${actual}\nspeed ${boid.speed.toFixed(2)}  ·  body ${bodyLen.toFixed(0)}px  ·  ${Math.round(p.frameRate())} fps`;
-    }
+    const bodyLen = 16*RENDER_SCALE*rail.size;
+    const rcGeom = cur ? Math.abs(cur.curvature) : 0;                  // exact rail curvature
+    const radiusTxt = rcGeom>1e-5 ? `${(1/rcGeom).toFixed(0)}px = ${((1/rcGeom)/bodyLen).toFixed(2)} body-len` : 'straight';
+    const bendUnits = Math.max(-KOI_BEND.maxUnits, Math.min(KOI_BEND.maxUnits, KOI_BEND.match*128*(rail.size*RENDER_SCALE)*turnRate)); // drawn bend
+    hud.textContent = `rail radius: ${radiusTxt}\nbody: ${bodyLen.toFixed(0)}px  ·  drawn bend: ${bendUnits.toFixed(2)} units (${(bendUnits/16).toFixed(2)} body-len tail-swing)\nspeed ${rail.speed.toFixed(2)}  ·  ${rail.smooth?'smoothed':'raw'} bend  ·  ${Math.round(p.frameRate())} fps`;
   };
 }, document.getElementById('stage'));
 </script>
