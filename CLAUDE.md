@@ -9,7 +9,7 @@ A reusable **ambient koi flocking background** for web apps. Extracted from `woo
 mounts a full-window p5 canvas. p5 is loaded from a CDN on demand (no build dep).
 
 Distributed as a **public GitHub repo**, consumed as a git dependency pinned to a tag
-(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.3"`). Public so Vercel (and any host)
+(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.4"`). Public so Vercel (and any host)
 resolves it at build time with no auth — a local `file:../wooj-koi` can't deploy, since
 only the consumer repo is checked out on the build server. Bump = push here, `git tag
 vX.Y.Z`, then bump the ref in the consumer. For local iteration on the package, swap the
@@ -77,3 +77,13 @@ hairpin and over-sweeps the tail), `maxUnits` caps it. Calibrated with a throwaw
 `_bendtest.html` that renders fish at fixed hard-left/straight/hard-right turnRates — re-add
 one like it (import the renderer, `noLoop`, screenshot) if you retune the bend; DON'T just
 crank the number blind, the tail flings past ~5 units.
+
+**Tail-flick (0.1.4):** the bend is driven by curvature (angularVelocity ÷ speed), which
+snaps to zero and back whenever the fish briefly finishes a turn and a crowding nudge starts
+another — so the tail flicked straight↔curved (worse when two fish are together). The bend
+now reads a SEPARATELY-smoothed `boid.renderCurvature` (low-passed at `BEND_SMOOTHING` 0.045,
+~0.35s), which rides through the brief turn-abort blips and eases the tail in/out instead of
+snapping; sustained turns still bend. `index.js` passes `boid.renderCurvature` as the
+renderer's `turnRate` (NOT the raw `angularVelocity/speed`). Traced + measured with
+`koi-sim/trace.mjs` and `koi-sim/bend.mjs`. NB the smoothing lags sustained-turn bend ~20%;
+if the body looks under-bent, nudge `KOI_BEND.match` up, not the smoothing down.

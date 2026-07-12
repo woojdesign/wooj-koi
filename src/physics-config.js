@@ -43,6 +43,10 @@ export const PHYSICS_CONFIG = {
     // cut turn reversals + turn-rate shake ~70% without widening the arcs (measured).
     TURN_DEADZONE: 0.052,        // radians (~3°) — below this heading error, don't steer
     ANGVEL_SMOOTHING: 0.15,      // low-pass on the turn rate (fraction eased per frame)
+    BEND_SMOOTHING: 0.045,       // slower low-pass on the curvature the renderer bends by, so
+                                 // the tail eases in/out of the curve (~0.35s) and rides through
+                                 // brief turn-abort blips (when crowding nudges the heading)
+                                 // instead of snapping straight↔curved — the tail "jitter"
     SPEED_SMOOTHING: 0.08,       // how gently speed eases toward its target
     MIN_SPEED_FRACTION: 0.6,     // keep gliding forward (esp. through turns) — a higher floor
                                  // means it doesn't slow to a near-pivot mid-turn

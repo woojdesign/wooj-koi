@@ -25,6 +25,7 @@ export class Boid {
         this.heading = this.velocity.heading();
         this.speed = this.velocity.mag();
         this.angularVelocity = 0;
+        this.renderCurvature = 0; // smoothed curvature the renderer bends the body by
         this.wanderHeading = this.heading; // where it steers while broken off
         this.wavePhase = 0; // swimming-wiggle phase — advances with speed, so a slow fish wiggles slowly
 
@@ -165,6 +166,13 @@ export class Boid {
         // Advance the swimming wiggle by how fast the fish is actually moving, so the
         // tail-beat matches the pace (slow fish wiggle slowly, not frantically).
         this.wavePhase += this.speed * PHYSICS_CONFIG.WAVE_RATE;
+
+        // Curvature the renderer bends the body by. Smoothed on its OWN (slower) time
+        // constant so the tail eases between straight and curved instead of snapping when
+        // the turn starts/stops — the angular velocity can pulse to zero and back near the
+        // dead-zone (esp. when crowding nudges the heading), which would flick the tail.
+        const curvature = this.angularVelocity / Math.max(this.speed, 0.15);
+        this.renderCurvature += (curvature - this.renderCurvature) * PHYSICS_CONFIG.BEND_SMOOTHING;
 
         // Velocity follows heading + speed; advance; clear forces.
         this.velocity = V.fromAngle(this.heading, this.speed);
