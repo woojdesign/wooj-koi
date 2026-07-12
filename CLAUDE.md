@@ -38,8 +38,14 @@ consumer to `file:../wooj-koi`. `wooj-site` is the reference consumer.
 ## Tester (dev tool)
 
 `tester/` is a browser playground for tuning — served, not shipped (excluded from the npm
-`files` whitelist, and it postdates the tags consumers pin). `npm run tester` (python
-http.server on :8123 — 8080 is taken by a sibling Rails app), open `/tester/`.
+`files` whitelist, and it postdates the tags consumers pin). Locally: `npm run tester`
+(python http.server on :8123 — 8080 is taken by a sibling Rails app), open `/tester/`.
+
+**Deployed at https://wooj-koi.vercel.app** (Vercel project `wooj-koi`, static: `vercel.json`
+sets `outputDirectory: "."` + a `/` → `/tester/index.html` redirect). The repo is git-linked,
+so pushes to `main` auto-deploy the tester to production. Vercel Authentication was disabled
+on the project (API: `ssoProtection: null`) so it's public — a fresh deploy shouldn't
+re-enable it, but if a URL starts 302'ing to `vercel.com/sso-api`, that's the toggle.
 
 - `tester/index.html` — live flock; every dial (PHYSICS_CONFIG, params, KOI_BEND,
   ANIMATION_CONFIG.wave) is a slider that mutates the imported config object in place, so it's
