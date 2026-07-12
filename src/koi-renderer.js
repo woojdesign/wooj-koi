@@ -1504,32 +1504,31 @@ export class KoiRenderer {
         const n = segs.length;
         if (n < 2) return;
 
-        // Slice height = body full width (clipped to the outline, so a little over is fine).
-        let maxW = 0;
-        for (let i = 0; i < n; i++) if (segs[i].w > maxW) maxW = segs[i].w;
-        const sliceHeight = maxW * 2 * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE;
+        // ONE flat brush rect (a subtle sumi-e wash — slicing it made the fish look segmented),
+        // sized to the whole DEFORMED body incl. the head so nothing is left untextured.
+        // segment.y is SVG units → ×sizeScale. Fixing centerY/size to the deformed bbox (not a
+        // fixed rect at y=0) covers the arc-displaced head → fixes the light head. Clipped to
+        // the body+head outline anyway.
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (let i = 0; i < n; i++) {
+            const s = segs[i], sy = s.y * sizeScale;
+            if (s.x < minX) minX = s.x;
+            if (s.x > maxX) maxX = s.x;
+            if (sy - s.w < minY) minY = sy - s.w;
+            if (sy + s.w > maxY) maxY = sy + s.w;
+        }
+        maxX += (shapeParams.headX + shapeParams.headWidth) * sizeScale; // head sits ahead of segment[0]
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const textureWidth = (maxX - minX) * 1.1;
+        const textureHeight = (maxY - minY) * 1.1;
 
         context.push();
+        context.translate(centerX, centerY);
         context.tint(hue, saturation, brightness, BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_ALPHA);
         context.blendMode(context.MULTIPLY);
         context.imageMode(context.CENTER);
-
-        // Draw the brush texture in SLICES that follow the deformed spine — each slice is the
-        // texture column for that segment, placed + rotated to the local tangent — so the
-        // texture bends with the body instead of sitting as a flat rect over a curved fish.
-        const texW = bodyTexture.width, texH = bodyTexture.height;
-        for (let i = 0; i < n - 1; i++) {
-            const a = segs[i], b = segs[i + 1];
-            const ax = a.x, ay = a.y * sizeScale, bx = b.x, by = b.y * sizeScale;
-            const dx = bx - ax, dy = by - ay;
-            const segLen = Math.hypot(dx, dy);
-            const sx = (i / (n - 1)) * texW, sw = texW / (n - 1);
-            context.push();
-            context.translate((ax + bx) / 2, (ay + by) / 2);
-            context.rotate(Math.atan2(dy, dx));
-            context.image(bodyTexture, 0, 0, segLen * 1.06, sliceHeight, sx, 0, sw, texH); // slight overlap hides seams
-            context.pop();
-        }
+        context.image(bodyTexture, 0, 0, textureWidth, textureHeight);
         context.noTint();
         context.blendMode(context.BLEND);
         context.pop();
