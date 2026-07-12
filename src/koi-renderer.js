@@ -474,7 +474,7 @@ export class KoiRenderer {
                 ySwayPhase: 0
             },
             positionX: segmentPos.x,
-            positionY: segmentPos.y + yOffset * sizeScale + sway,
+            positionY: segmentPos.y * sizeScale + yOffset * sizeScale + sway, // segment.y is SVG units → ×sizeScale so the fin follows the arc
             rotation: baseAngle, // Base angle applied to entire shape
             scale: sizeScale,
             hue,
@@ -571,7 +571,7 @@ export class KoiRenderer {
                         numSegments: dorsalSegments.length
                     },
                     positionX: segmentPositions[shapeParams.dorsalPos].x,
-                    positionY: segmentPositions[shapeParams.dorsalPos].y + shapeParams.dorsalY * sizeScale,
+                    positionY: segmentPositions[shapeParams.dorsalPos].y * sizeScale + shapeParams.dorsalY * sizeScale, // ×sizeScale: segment.y is SVG units
                     rotation: 0,
                     scale: sizeScale,
                     hue,
