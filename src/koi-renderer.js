@@ -250,7 +250,7 @@ export class KoiRenderer {
         // un-textured procedural koi (the "bad vectors") before the sumi-e outline arrives.
         if (!(svgVertices.body && svgVertices.body.length > 0)) return;
 
-        const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0 } = animationParams;
+        const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0, speedFraction = 0 } = animationParams;
         const { brightnessBoost = 0, saturationBoost = 0, sizeScale: modifierSizeScale = 1 } = modifiers;
 
         // Apply modifier size scaling
@@ -300,7 +300,7 @@ export class KoiRenderer {
         // body's actual arc-end point with the body's exit tangent.
         const hasBodySvg = svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0;
         if (show.tail && hasBodySvg) {
-            this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, hue, saturation, brightness);
+            this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, hue, saturation, brightness);
         }
         if (show.body) {
             if (hasBodySvg) {
@@ -347,28 +347,36 @@ export class KoiRenderer {
      * to the body's exit tangent (with a gentle flap). Because it's placed at the real end
      * point + tangent, it stays attached without being part of the body's deforming outline.
      */
-    drawPinnedTail(context, bodySegments, sizeScale, tailLength, waveTime, waveAmplitudeScale, hue, saturation, brightness) {
+    drawPinnedTail(context, bodySegments, sizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, hue, saturation, brightness) {
         const n = bodySegments.length;
         if (n < 2) return;
         const end = bodySegments[n - 1], prev = bodySegments[n - 2];
         const ax = end.x, ay = end.y * sizeScale;                                    // body-end point (drawn px)
         const tangent = Math.atan2((end.y - prev.y) * sizeScale, end.x - prev.x);     // toward the tail (backward)
-        const flap = Math.sin(waveTime - ANIMATION_CONFIG.wave.phaseGradient) *
-                     ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale * 0.03;     // gentle stiff-fin flap
-        // Forked caudal fan (SVG units), wrist at local origin, lobes extending -x.
+
+        // Movement-tied dynamics. The wag beats with the swimming rhythm (waveTime advances with
+        // speed) and grows with forward speed; the tips LAG the wrist for flow; and the fork
+        // draws together as the fish drives forward (water forcing the fins back).
+        const spd = Math.max(0, Math.min(1, speedFraction));
+        const grade = ANIMATION_CONFIG.wave.phaseGradient;
+        const flap = Math.sin(waveTime - grade) * 0.20 * (0.25 + 0.75 * spd);         // whole-fan wag (rad)
+        const tipSway = Math.sin(waveTime - grade - 0.9) * 0.45 * (0.25 + 0.75 * spd); // lagged tip sway (units) → flow
+        const pinch = 1 - 0.35 * spd;                                                 // fork narrows with speed
+
+        // Forked caudal fan (SVG units), wrist at local origin, lobes extending -x. Narrow wrist
+        // (fine attachment) widening to the lobes; f scaled by `pinch`; tips carry the lagged sway.
         const tailScale = Math.min(1, 0.55 + 0.45 * (tailLength - 0.9) / 0.9);
-        const r = 7.5 * tailScale, f = 3.6 * tailScale;
-        // Narrow wrist near the body (fine attachment), widening to the forked lobes.
+        const r = 7.5 * tailScale, f = 3.6 * tailScale * pinch;
         const fan = [
-            { x: r * 0.1,    y: +f * 0.06 },  // wrist — fine point tucked into the body
-            { x: -r * 0.5,   y: +f * 0.55 },  // upper, widening
-            { x: -r * 0.9,   y: +f },         // upper lobe tip
-            { x: -r * 0.7,   y: +f * 0.25 },  // upper inner
-            { x: -r * 0.5,   y: 0 },          // center notch (fork)
-            { x: -r * 0.7,   y: -f * 0.25 },  // lower inner
-            { x: -r * 0.9,   y: -f },         // lower lobe tip
-            { x: -r * 0.5,   y: -f * 0.55 },  // lower, widening
-            { x: r * 0.1,    y: -f * 0.06 },  // wrist — fine point
+            { x: r * 0.1,    y: +f * 0.06 },
+            { x: -r * 0.5,   y: +f * 0.55 + tipSway * 0.4 },
+            { x: -r * 0.9,   y: +f + tipSway },              // upper lobe tip (leads the sway)
+            { x: -r * 0.7,   y: +f * 0.25 + tipSway * 0.6 },
+            { x: -r * 0.5,   y: 0 + tipSway * 0.3 },         // center notch
+            { x: -r * 0.7,   y: -f * 0.25 + tipSway * 0.6 },
+            { x: -r * 0.9,   y: -f + tipSway },              // lower lobe tip
+            { x: -r * 0.5,   y: -f * 0.55 + tipSway * 0.4 },
+            { x: r * 0.1,    y: -f * 0.06 },
         ];
         context.push();
         context.translate(ax, ay);

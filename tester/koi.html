@@ -96,7 +96,7 @@ function renderKoi(p, x, y, sizeScale, f, waveTime, turnRate) {
   renderer.render(p, x, y, 0, {
     shapeParams: DEFAULT_SHAPE_PARAMS, colorParams: f.variety.base, pattern: f.pattern,
     animationParams: { waveTime, sizeScale, waveAmplitudeScale: f.amp ?? 0.55,
-      lengthMultiplier: f.length ?? 1, tailLength: f.tail ?? 1.3, turnRate: turnRate ?? 0 },
+      lengthMultiplier: f.length ?? 1, tailLength: f.tail ?? 1.3, turnRate: turnRate ?? 0, speedFraction: 0.6 },
     modifiers: { brightnessBoost:0, saturationBoost:0, sizeScale:1 },
     boidSeed: 7, svgVertices,
   });
