@@ -313,7 +313,13 @@ export class KoiRenderer {
             }
         }
 
-        if (show.head) this.drawHead(context, segmentPositions[0], shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices.head);
+        if (show.head) {
+            // Head angle: the local arc tangent at the head, so the head follows the curve
+            // (pinned to the body front) instead of pointing along the base heading.
+            const s0 = segmentPositions[0], s1 = segmentPositions[1] || s0;
+            const headAngle = Math.atan2((s0.y - s1.y) * finalSizeScale, s0.x - s1.x);
+            this.drawHead(context, s0, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices.head, headAngle);
+        }
 
         // Clip body texture and spots to body+head outline for cleaner appearance
         // Single clipping region shared by both operations (performance optimization)
@@ -1717,7 +1723,7 @@ export class KoiRenderer {
      * @param {number} saturation - HSB saturation
      * @param {number} brightness - HSB brightness
      */
-    drawHeadFromSVG(context, headSegment, svgVertices, shapeParams, sizeScale, hue, saturation, brightness) {
+    drawHeadFromSVG(context, headSegment, svgVertices, shapeParams, sizeScale, hue, saturation, brightness, headAngle = 0) {
         // Guard: Validate inputs
         if (!svgVertices || !Array.isArray(svgVertices) || svgVertices.length === 0) {
             return; // Cannot draw head without vertices
@@ -1726,15 +1732,21 @@ export class KoiRenderer {
             return; // Cannot position head without segment
         }
 
-        const headX = headSegment.x + shapeParams.headX * sizeScale;
-        const headY = headSegment.y;
+        // Head anchor on the spine. NOTE: segment.y is in SVG units (the deform scales it by
+        // sizeScale), so it MUST be scaled here to sit at the arc-displaced head position —
+        // otherwise the head lags ~sizeScale× toward the axis. Head + eyes are drawn in one
+        // translated + rotated frame so they follow the local arc tangent (headAngle).
+        const cx = headSegment.x + shapeParams.headX * sizeScale;
+        const cy = headSegment.y * sizeScale;
+        context.push();
+        context.translate(cx, cy);
+        context.rotate(headAngle);
 
-        // Draw head shape from SVG with static deformation (no animation)
         this.drawSVGShape(context, svgVertices, {
             deformationType: 'static', // No animation for head
             deformationParams: {},
-            positionX: headX,
-            positionY: headY,
+            positionX: 0,
+            positionY: 0,
             rotation: 0,
             scale: sizeScale,
             hue,
@@ -1744,25 +1756,14 @@ export class KoiRenderer {
             mirror: 'none'
         });
 
-        // Eyes are always drawn procedurally (precise, small details)
-        // Rendered on top of SVG head shape
+        // Eyes, relative to the head centre so they rotate with the head.
         context.fill(0, 0, RENDERING_CONFIG.color.eyeBrightness, RENDERING_CONFIG.opacity.eyes);
+        const eyeX = (shapeParams.eyeX - shapeParams.headX) * sizeScale;
+        const eyeSize = shapeParams.eyeSize * sizeScale;
+        context.ellipse(eyeX, shapeParams.eyeYTop * sizeScale, eyeSize, eyeSize);
+        context.ellipse(eyeX, shapeParams.eyeYBottom * sizeScale, eyeSize, eyeSize);
 
-        // Left eye (top)
-        context.ellipse(
-            headSegment.x + shapeParams.eyeX * sizeScale,
-            headSegment.y + shapeParams.eyeYTop * sizeScale,
-            shapeParams.eyeSize * sizeScale,
-            shapeParams.eyeSize * sizeScale
-        );
-
-        // Right eye (bottom)
-        context.ellipse(
-            headSegment.x + shapeParams.eyeX * sizeScale,
-            headSegment.y + shapeParams.eyeYBottom * sizeScale,
-            shapeParams.eyeSize * sizeScale,
-            shapeParams.eyeSize * sizeScale
-        );
+        context.pop();
     }
 
     /**
@@ -1778,7 +1779,7 @@ export class KoiRenderer {
      * @param {number} brightness - HSB brightness
      * @param {Array<{x,y}>} [svgVertices=null] - Optional SVG vertices for head
      */
-    drawHead(context, headSegment, shapeParams, sizeScale, hue, saturation, brightness, svgVertices = null) {
+    drawHead(context, headSegment, shapeParams, sizeScale, hue, saturation, brightness, svgVertices = null, headAngle = 0) {
         // Guard: Validate head segment
         if (!headSegment) {
             return; // Cannot draw head without segment
@@ -1786,7 +1787,7 @@ export class KoiRenderer {
 
         // Use SVG if provided, otherwise use procedural rendering
         if (svgVertices && Array.isArray(svgVertices) && svgVertices.length > 0) {
-            this.drawHeadFromSVG(context, headSegment, svgVertices, shapeParams, sizeScale, hue, saturation, brightness);
+            this.drawHeadFromSVG(context, headSegment, svgVertices, shapeParams, sizeScale, hue, saturation, brightness, headAngle);
             return;
         }
 

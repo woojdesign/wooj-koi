@@ -71,6 +71,13 @@ re-enable it, but if a URL starts 302'ing to `vercel.com/sso-api`, that's the to
 
 ## Gotchas
 
+- **segment.x is px, segment.y is SVG units.** The spine segments mix units: `x =
+  lerp(7,-9,t)·sizeScale` (px) but `y = wave + arcOffset` (units — the body deform adds it to
+  the vertex y and THEN scales). Anything using `segment.y` as a pixel position must ×sizeScale
+  (this bit the head: it was placed at `segment.y` unscaled, ~10× short, so it lagged toward the
+  axis instead of following the arc). The head is now drawn in a translate(headX, headSegment.y·
+  sizeScale) + rotate(local tangent) frame so it follows the curve, pinned to the body front.
+
 - **The app owns framing.** Blur, opacity, e-ink (don't init on e-ink), and view-transition
   persistence live in the consumer's wrapper, not here. See `wooj-site`'s `KoiBackground.astro`.
 - **Full-window canvas.** `createCanvas(windowWidth, windowHeight)`; the container is just
