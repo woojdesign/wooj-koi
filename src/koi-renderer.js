@@ -1549,6 +1549,13 @@ export class KoiRenderer {
         ctx.save();
         ctx.beginPath();
 
+        // The clip region is body ∪ head, but the canvas nonzero rule fills the UNION only if
+        // both subpaths wind the SAME way — if they wind oppositely their overlap (the head∩body
+        // intersection) cancels to a hole and loses texture. Track the body winding and draw the
+        // head to match it.
+        const winding = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p.x * q.y - q.x * p.y; } return Math.sign(a); };
+        let bodyWinding = 0;
+
         // Create body outline path
         if (svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0) {
             // Use SVG body outline
@@ -1559,6 +1566,7 @@ export class KoiRenderer {
                     ctx.lineTo(bodyOutline[i].x, bodyOutline[i].y);
                 }
                 ctx.closePath();
+                bodyWinding = winding(bodyOutline);
             }
         } else {
             // Use procedural body outline
@@ -1596,9 +1604,12 @@ export class KoiRenderer {
             const ca = Math.cos(headAngle), sa = Math.sin(headAngle);
             const hx = (v) => cx + (v.x * sizeScale) * ca - (v.y * sizeScale) * sa;
             const hy = (v) => cy + (v.x * sizeScale) * sa + (v.y * sizeScale) * ca;
-            ctx.moveTo(hx(svgVertices.head[0]), hy(svgVertices.head[0]));
-            for (let i = 1; i < svgVertices.head.length; i++) {
-                ctx.lineTo(hx(svgVertices.head[i]), hy(svgVertices.head[i]));
+            // Draw the head with the body's winding so body∪head fills (no cancelled overlap).
+            const headPts = svgVertices.head.map((v) => ({ x: hx(v), y: hy(v) }));
+            const order = (bodyWinding !== 0 && winding(headPts) === -bodyWinding) ? headPts.slice().reverse() : headPts;
+            ctx.moveTo(order[0].x, order[0].y);
+            for (let i = 1; i < order.length; i++) {
+                ctx.lineTo(order[i].x, order[i].y);
             }
             ctx.closePath();
         } else {

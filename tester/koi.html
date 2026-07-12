@@ -166,7 +166,12 @@ new p5((p) => {
     const bt = new BrushTextures(); bt.loadImages(imgs); bt.setP5Instance(p);
     renderer = new KoiRenderer(bt);
     rollGallery();
-    setMode(new URLSearchParams(location.search).get('mode') === 'inspect' ? 'inspect' : 'gallery');
+    const q = new URLSearchParams(location.search);
+    setMode(q.get('mode') === 'inspect' ? 'inspect' : 'gallery');
+    const vp = q.get('variety');
+    if (vp) { const v = VARIETIES.find(x => x.name === vp); if (v) { fish.variety = v; fish.pattern = generatePattern(v, Math.random, Math.floor); syncInspectUI(); } }
+    const tp = q.get('turn');
+    if (tp) { fish.turn = parseFloat(tp); syncInspectUI(); }
   };
   p.windowResized = function () { const [w, h] = stageSize(); p.resizeCanvas(w, h); };
 
