@@ -116,6 +116,15 @@ curvature the body takes (**1 = body lies exactly on the rail**), `maxCurve` cap
 body itself bends. Tune with the rail tuner (`tester/turn.html`, circle + raw bend) — the HUD
 shows body-arc-radius vs rail-radius, equal at match 1.
 
+Two refinements so the TAIL doesn't look disproportionately distorted vs the body:
+- **Rib rotation** (`applyWaveDeformation`): the body deform now rotates each vertex's
+  perpendicular offset to follow the spine tangent (a normal-ribbon) instead of only shifting
+  y. Pure y-shift SHEARS the outline where the spine is steep (the tail), so the fan stretched;
+  rotating the ribs keeps it clean. `drawBodyFromSVG` passes `sizeScale` in `deformationParams`
+  to enable it (other 'wave' users — dorsal fin, clip — omit it and keep the plain shift).
+- **Stiff tail** (`extendBodyWithTail`): the caudal fin trails STRAIGHT along the body-end
+  tangent instead of continuing the arc, matching a real (stiff) tail and stopping the over-curl.
+
 **Tail-flick (0.1.4):** the bend is driven by curvature (angularVelocity ÷ speed), which
 snaps to zero and back whenever the fish briefly finishes a turn and a crowding nudge starts
 another — so the tail flicked straight↔curved (worse when two fish are together). The bend

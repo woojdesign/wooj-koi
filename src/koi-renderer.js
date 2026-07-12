@@ -820,7 +820,7 @@ export class KoiRenderer {
             return vertices; // No deformation possible, return original
         }
 
-        const { segmentPositions, numSegments } = params;
+        const { segmentPositions, numSegments, sizeScale } = params;
 
         // Calculate X bounds once for all vertices (optimized - no intermediate array)
         let minX = Infinity;
@@ -865,11 +865,21 @@ export class KoiRenderer {
             // Linear interpolation between segments
             const interpolatedY = currentY + (nextY - currentY) * blend;
 
-            // Create new vertex object with deformed Y coordinate
-            result[i] = {
-                x: v.x,
-                y: v.y + interpolatedY
-            };
+            if (sizeScale) {
+                // Rib rotation (normal-ribbon bend): rotate the vertex's perpendicular offset
+                // (v.y) to follow the spine's tangent instead of only shifting it up. Otherwise
+                // the outline SHEARS where the spine is steep — which is exactly the tail, so
+                // the tail looked disproportionately distorted vs the barely-sloped body. The
+                // spine point stays at (v.x, interpolatedY); the rib is placed along its normal.
+                const iA = Math.max(0, currentIdx - 1);
+                const iB = Math.min(numSegments - 1, currentIdx + 1);
+                const dX = segmentPositions[iB].x - segmentPositions[iA].x;            // px
+                const dY = (segmentPositions[iB].y - segmentPositions[iA].y) * sizeScale; // units→px
+                const theta = Math.atan2(dY, dX);                                     // spine tangent
+                result[i] = { x: v.x - v.y * Math.sin(theta), y: interpolatedY + v.y * Math.cos(theta) };
+            } else {
+                result[i] = { x: v.x, y: v.y + interpolatedY };
+            }
         }
 
         return result;
@@ -1205,13 +1215,19 @@ export class KoiRenderer {
         const numSeg = bodySegments.length;
         const numTail = 7;
         const segments = bodySegments.slice();
+        // The caudal fin is STIFF: rather than continuing the body's arc (which over-curls and
+        // flings the tail), it trails STRAIGHT along the body-end tangent. Junction point + the
+        // arc's slope there (units per px = sin(κx)/sizeScale); the tail is that tangent line.
+        const xJ = bodySegments[numSeg - 1].x;
+        const yJ = arcOffset(curvature, xJ, sizeScale);
+        const slopeJ = Math.abs(curvature) < 1e-6 ? 0 : Math.sin(curvature * xJ) / sizeScale;
         for (let j = 1; j <= numTail; j++) {
             const t = (numSeg - 1 + j) / numSeg; // continue past t = 1 into the tail
             const x = this.lerp(7, -9, t) * sizeScale * lengthMultiplier;
             const wave = Math.sin(waveTime - t * ANIMATION_CONFIG.wave.phaseGradient) *
                          ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale *
                          (1 - t * ANIMATION_CONFIG.wave.dampening);
-            segments.push({ x, y: wave + arcOffset(curvature, x, sizeScale), w: 0 });
+            segments.push({ x, y: wave + yJ + (x - xJ) * slopeJ, w: 0 }); // straight tangent tail
         }
 
         // Splice a tail fan into the body's vertex loop at its leftmost (tail-end) edge.
@@ -1255,6 +1271,7 @@ export class KoiRenderer {
             deformationType: 'wave',
             deformationParams: {
                 segmentPositions,
+                sizeScale, // enables rib rotation (normal-ribbon bend) for the body outline
                 numSegments: segmentPositions.length
             },
             positionX: 0,
