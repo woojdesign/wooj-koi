@@ -1539,10 +1539,13 @@ export class KoiRenderer {
             return [];
         }
 
-        // Apply the same wave deformation as drawBodyFromSVG to match animated body
+        // Apply the SAME wave deformation as drawBodyFromSVG (incl. rib rotation via sizeScale)
+        // so the texture clip matches the drawn body exactly — otherwise the base fill shows
+        // through as a lighter "ghost" where the two diverge.
         const deformedVertices = this.applyWaveDeformation(svgVertices, {
             segmentPositions,
-            numSegments: segmentPositions.length
+            numSegments: segmentPositions.length,
+            sizeScale
         });
 
         // Then scale the deformed vertices to world space
