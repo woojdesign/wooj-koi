@@ -238,6 +238,12 @@ export class KoiRenderer {
             }
         } = params;
 
+        // Don't draw until the body SVG has loaded. p5's async preload blocks setup on the
+        // tracked loadImage calls but NOT on the awaited SVG fetches, so for the first frames
+        // after a load svgVertices.body is still null — rendering then would flash the old
+        // un-textured procedural koi (the "bad vectors") before the sumi-e outline arrives.
+        if (!(svgVertices.body && svgVertices.body.length > 0)) return;
+
         const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0 } = animationParams;
         const { brightnessBoost = 0, saturationBoost = 0, sizeScale: modifierSizeScale = 1 } = modifiers;
 

@@ -9,7 +9,7 @@ A reusable **ambient koi flocking background** for web apps. Extracted from `woo
 mounts a full-window p5 canvas. p5 is loaded from a CDN on demand (no build dep).
 
 Distributed as a **public GitHub repo**, consumed as a git dependency pinned to a tag
-(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.4"`). Public so Vercel (and any host)
+(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.5"`). Public so Vercel (and any host)
 resolves it at build time with no auth — a local `file:../wooj-koi` can't deploy, since
 only the consumer repo is checked out on the build server. Bump = push here, `git tag
 vX.Y.Z`, then bump the ref in the consumer. For local iteration on the package, swap the
@@ -54,6 +54,10 @@ re-enable it, but if a URL starts 302'ing to `vercel.com/sso-api`, that's the to
   dials as JSON — that's how a tuning comes back to get baked into the source.
 - `tester/koi.html` — variety gallery (all 26 from `VARIETIES`) + single-koi inspector
   (variety, reroll pattern, randomize, size/length/tail/bend/wave). `?mode=inspect`.
+- `tester/turn.html` — turn tuner: ONE koi chasing an orbiting (or pointer) target so it
+  turns continuously, with just the turning dials + bend, a turn-radius overlay + path trail,
+  and a HUD reading the design vs actual turn radius in body-lengths. Renders at the site's
+  9.9 scale so the radius-to-body ratio matches production. For dialling turning in isolation.
 - Needed `export const KOI_BEND` in `koi-renderer.js` so the tester can tune it live (was
   module-private). Harmless additive export.
 
@@ -65,6 +69,11 @@ re-enable it, but if a URL starts 302'ing to `vercel.com/sso-api`, that's the to
   the parent, positioned with CSS. (No container-sized mode yet.)
 - **p5 preload is async** and mixes tracked `loadImage` calls with awaited SVG fetches; it
   works because the image loads hold `setup` long enough. Don't "tidy" it without testing.
+- **Load-flash (fixed 0.1.5):** p5 blocks `setup` on the tracked `loadImage` calls but NOT on
+  the awaited SVG fetches, so for the first frames `svgVertices.body` is null and the old code
+  fell through to the procedural (un-textured, stroked) koi — a visible flash of "bad vectors
+  with a border" on load. `render()` now returns early until `svgVertices.body` is loaded, so
+  a not-yet-ready koi draws nothing instead of the fallback.
 
 ## Feel / tuning
 

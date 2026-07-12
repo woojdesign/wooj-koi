@@ -11,7 +11,7 @@ no auth):
 
 ```jsonc
 // package.json
-"dependencies": { "wooj-koi": "github:woojdesign/wooj-koi#v0.1.4" }
+"dependencies": { "wooj-koi": "github:woojdesign/wooj-koi#v0.1.5" }
 ```
 
 then `npm install`. p5.js is fetched from a CDN on demand — no build-time dependency. For
@@ -69,6 +69,9 @@ npm run tester          # serves the repo on :8123
 - **Koi viewer** (`tester/koi.html`) — a gallery of all 26 varieties, and an inspector for a
   single koi (pick a variety, reroll its pattern, randomize a fish, and scrub size / length /
   tail / bend / wave). `?mode=inspect` opens straight to the inspector.
+- **Turn tuner** (`tester/turn.html`) — one koi chasing an orbiting (or pointer) target so it
+  turns continuously, with just the turning + bend dials, a turn-radius overlay and path
+  trail, and a HUD reading the turn radius in body-lengths. For dialling turning in isolation.
 
 ## Tuning
 
