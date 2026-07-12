@@ -159,7 +159,7 @@ export class KoiRenderer {
         this.useSumieStyle = brushTextures !== null && brushTextures.isReady;
 
         // Debug: toggle individual layers on/off (set by the tester to isolate parts).
-        this.parts = { fins: true, body: true, tail: true, head: true, texture: true, spots: true };
+        this.parts = { fins: true, body: true, tail: true, head: true, texture: true, spots: true, skeleton: false };
 
         // Wave value cache for performance (eliminates ~800 Math.sin() calls per frame)
         this.waveCache = null;
@@ -298,10 +298,11 @@ export class KoiRenderer {
         // the body's bent centerline and a fan is spliced into the body's vertex loop, so
         // the whole fish is one shape over one centerline and the tail can't detach. Only
         // the procedural fallback (no body SVG) uses the old separate drawTail.
+        const hasBodySvg = svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0;
+        const ext = hasBodySvg ? this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength) : null;
         if (show.body) {
-            if (svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0) {
+            if (hasBodySvg) {
                 if (show.tail) {
-                    const ext = this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength);
                     this.drawBodyFromSVG(context, ext.segments, ext.verts, shapeParams, finalSizeScale, hue, saturation, brightness);
                 } else {
                     this.drawBodyFromSVG(context, segmentPositions, svgVertices.body, shapeParams, finalSizeScale, hue, saturation, brightness); // body only, no tail
@@ -330,7 +331,41 @@ export class KoiRenderer {
             ventralFin: null // Don't draw ventral fins again
         });
 
+        // Debug: the deformer skeleton (spine centerline + rib normals) over the fish.
+        if (show.skeleton) this.drawSkeleton(context, (show.tail && ext) ? ext.segments : segmentPositions, finalSizeScale);
+
         // Restore graphics state
+        context.pop();
+    }
+
+    /**
+     * Debug overlay: draw the deformer skeleton — the spine centerline that drives the body
+     * deformation, plus a rib normal at each joint (so you can see the rib rotation and where
+     * the tail's spine diverges). Drawn in the fish's local (translated + rotated) frame; the
+     * spine point is (segment.x [px], segment.y·sizeScale [units→px]).
+     */
+    drawSkeleton(context, segments, sizeScale) {
+        if (!segments || segments.length < 2) return;
+        context.push();
+        context.noFill();
+        // spine centerline
+        context.stroke(205, 85, 60); context.strokeWeight(2);
+        context.beginShape();
+        for (const s of segments) context.vertex(s.x, s.y * sizeScale);
+        context.endShape();
+        // rib normal + joint at each segment
+        const n = segments.length;
+        for (let i = 0; i < n; i++) {
+            const s = segments[i];
+            const px = s.x, py = s.y * sizeScale;
+            const a = segments[Math.max(0, i - 1)], b = segments[Math.min(n - 1, i + 1)];
+            const th = Math.atan2((b.y - a.y) * sizeScale, b.x - a.x);
+            const nx = -Math.sin(th), ny = Math.cos(th), L = 12;
+            context.stroke(48, 90, 90); context.strokeWeight(1.5);
+            context.line(px - nx * L, py - ny * L, px + nx * L, py + ny * L);
+            context.stroke(340, 80, 95); context.strokeWeight(5);
+            context.point(px, py);
+        }
         context.pop();
     }
 

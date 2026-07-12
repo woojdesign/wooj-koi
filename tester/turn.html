@@ -68,6 +68,7 @@
       <label><input type="checkbox" data-part="fins" checked> fins</label>
       <label><input type="checkbox" data-part="texture" checked> texture</label>
       <label><input type="checkbox" data-part="spots" checked> spots</label>
+      <label><input type="checkbox" data-part="skeleton"> skeleton</label>
     </div>
     <div id="dials"></div>
     <div class="btns" style="margin-top:12px"><button id="reset">reset</button><button id="export" class="primary">export</button></div>
@@ -137,11 +138,15 @@ function syncRailRows() {
 railType.addEventListener('change', () => { rail.type = railType.value; syncRailRows(); resetPath(); }); syncRailRows();
 ['cw','smooth','railShow','overlay','trails','pause'].forEach(id => document.getElementById(id).addEventListener('change', e => rail[id] = e.target.checked));
 // layer toggles (debug) — mutate the renderer's part flags
-const parts = { fins:true, body:true, tail:true, head:true, texture:true, spots:true };
+const parts = { fins:true, body:true, tail:true, head:true, texture:true, spots:true, skeleton:false };
 document.querySelectorAll('[data-part]').forEach(el => el.addEventListener('change', e => { parts[e.target.dataset.part] = e.target.checked; }));
-// URL preset: ?hide=head,texture
-(new URLSearchParams(location.search).get('hide')||'').split(',').filter(Boolean).forEach(pt => {
+// URL presets: ?hide=head,texture  ?show=skeleton
+const _q = new URLSearchParams(location.search);
+(_q.get('hide')||'').split(',').filter(Boolean).forEach(pt => {
   if (pt in parts) { parts[pt] = false; const cb = document.querySelector(`[data-part="${pt}"]`); if (cb) cb.checked = false; }
+});
+(_q.get('show')||'').split(',').filter(Boolean).forEach(pt => {
+  if (pt in parts) { parts[pt] = true; const cb = document.querySelector(`[data-part="${pt}"]`); if (cb) cb.checked = true; }
 });
 document.getElementById('reset').addEventListener('click', () => { Object.entries(DEFAULTS).forEach(([k,v]) => { const [o,key]=k.split('.'); TARGET[o][key]=v; els[k].inp.value=v; els[k].show(); }); });
 document.getElementById('export').addEventListener('click', () => {
