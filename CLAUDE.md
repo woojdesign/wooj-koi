@@ -9,7 +9,7 @@ A reusable **ambient koi flocking background** for web apps. Extracted from `woo
 mounts a full-window p5 canvas. p5 is loaded from a CDN on demand (no build dep).
 
 Distributed as a **public GitHub repo**, consumed as a git dependency pinned to a tag
-(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.5"`). Public so Vercel (and any host)
+(`"wooj-koi": "github:woojdesign/wooj-koi#v0.1.6"`). Public so Vercel (and any host)
 resolves it at build time with no auth — a local `file:../wooj-koi` can't deploy, since
 only the consumer repo is checked out on the build server. Bump = push here, `git tag
 vX.Y.Z`, then bump the ref in the consumer. For local iteration on the package, swap the

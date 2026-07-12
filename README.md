@@ -11,7 +11,7 @@ no auth):
 
 ```jsonc
 // package.json
-"dependencies": { "wooj-koi": "github:woojdesign/wooj-koi#v0.1.5" }
+"dependencies": { "wooj-koi": "github:woojdesign/wooj-koi#v0.1.6" }
 ```
 
 then `npm install`. p5.js is fetched from a CDN on demand — no build-time dependency. For
