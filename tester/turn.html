@@ -52,7 +52,7 @@
     <div class="row"><label>view zoom</label><span class="val" id="vZoom"></span><input id="zoom" type="range" min="0.6" max="3" step="0.1"></div>
     <div class="conds">
       <label><input id="cw" type="checkbox"> reverse (CW)</label>
-      <label><input id="smooth" type="checkbox" checked> smooth bend</label>
+      <label><input id="smooth" type="checkbox"> smooth bend</label>
     </div>
     <div class="conds">
       <label><input id="railShow" type="checkbox" checked> show rail</label>
@@ -81,13 +81,13 @@ const svgVertices = { body:null, tail:null, head:null, pectoralFin:null, dorsalF
 const imgs = { body:null, fin:null, tail:null, spots:[], paper:null };
 
 const rail = { type:'circle', radius:160, amp:120, wave:420, speed:0.6, size:1, zoom:1.2,
-               cw:false, smooth:true, railShow:true, overlay:true, trails:false, paused:false };
+               cw:false, smooth:false, railShow:true, overlay:true, trails:false, paused:false };
 const TARGET = { phys:PHYSICS_CONFIG, bend:KOI_BEND, wave:ANIMATION_CONFIG.wave };
 
 const DIALS = [
   ['Body bend', [
-    ['bend','match',          0, 1, 0.02,   'bend match (arc)'],
-    ['bend','maxUnits',       1, 12, 0.5,   'bend cap (units)'],
+    ['bend','match',          0, 1.2, 0.02, 'bend match (1 = lies on rail)'],
+    ['bend','maxCurve',       0.005, 0.03, 0.001, 'bend curvature cap'],
     ['phys','BEND_SMOOTHING', 0.01, 0.3, 0.005, 'bend smoothing'],
   ]],
   ['Wiggle', [
@@ -221,8 +221,9 @@ new p5((p) => {
     const bodyLen = 16*RENDER_SCALE*rail.size;
     const rcGeom = cur ? Math.abs(cur.curvature) : 0;                  // exact rail curvature
     const radiusTxt = rcGeom>1e-5 ? `${(1/rcGeom).toFixed(0)}px = ${((1/rcGeom)/bodyLen).toFixed(2)} body-len` : 'straight';
-    const bendUnits = Math.max(-KOI_BEND.maxUnits, Math.min(KOI_BEND.maxUnits, KOI_BEND.match*128*(rail.size*RENDER_SCALE)*turnRate)); // drawn bend
-    hud.textContent = `rail radius: ${radiusTxt}\nbody: ${bodyLen.toFixed(0)}px  ·  drawn bend: ${bendUnits.toFixed(2)} units (${(bendUnits/16).toFixed(2)} body-len tail-swing)\nspeed ${rail.speed.toFixed(2)}  ·  ${rail.smooth?'smoothed':'raw'} bend  ·  ${Math.round(p.frameRate())} fps`;
+    const bodyCurv = Math.abs(Math.max(-KOI_BEND.maxCurve, Math.min(KOI_BEND.maxCurve, KOI_BEND.match*turnRate)));
+    const bodyR = bodyCurv>1e-6 ? `${(1/bodyCurv).toFixed(0)}px = ${((1/bodyCurv)/bodyLen).toFixed(2)} body-len` : 'straight';
+    hud.textContent = `rail radius: ${radiusTxt}\nbody arc radius: ${bodyR}   (match ${KOI_BEND.match}, = rail when match 1)\nspeed ${rail.speed.toFixed(2)}  ·  ${rail.smooth?'smoothed':'raw'} bend  ·  ${Math.round(p.frameRate())} fps`;
   };
 }, document.getElementById('stage'));
 </script>

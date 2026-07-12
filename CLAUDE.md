@@ -102,16 +102,19 @@ with speed). `MIN_SPEED_FRACTION` 0.45 → 0.6 keeps them gliding forward throug
 Cost is lazier turns (~5s for 90°) — the intended calm feel. Measure radius in body-lengths
 with `koi-sim/radius.mjs`.
 
-**Body bend matches the arc (0.1.3):** `koiBend()` sets the centerline curve `y = wave +
-bend·t²` to follow the travelled arc. The gotcha: the body deform (`applyWaveDeformation`)
-adds the spine y to the SVG vertex y and THEN scales by `sizeScale`, so **bend is in SVG
-units, not px** — the drawn deflection is `bend·sizeScale`. Matching an arc of radius R
-gives `bend = 128 · sizeScale · turnRate` units (128 = ½·16², body is 16 units wide);
-`KOI_BEND.match` (0.3) dials it down from the literal arc (a 0.85-radius arc is nearly a
-hairpin and over-sweeps the tail), `maxUnits` caps it. Calibrated with a throwaway
-`_bendtest.html` that renders fish at fixed hard-left/straight/hard-right turnRates — re-add
-one like it (import the renderer, `noLoop`, screenshot) if you retune the bend; DON'T just
-crank the number blind, the tail flings past ~5 units.
+**Body bend = a true circular arc (reworked from the 0.1.3 parabola):** the centerline is now
+`y = wave + arcOffset(κ, u)` where `arcOffset = (1 − cos(κ·u)) / κ / sizeScale`, `u` = the
+segment's body-axis offset in px, and `κ = koiCurvature(turnRate) = clamp(KOI_BEND.match ·
+turnRate, ±KOI_BEND.maxCurve)`. Why it changed: the old `bend·t²` was a parabola measured from
+the HEAD (t=0), so the head stayed rigid and deflection piled up quadratically toward the tail
+— flinging/stretching the tail while the front didn't match the path. The arc is EVEN in u
+(head and tail curve together toward the turn centre → constant curvature, "begins" at the
+middle) and BOUNDED (the tail follows the arc, no runaway). `arcOffset` returns UNITS because
+the deform (`applyWaveDeformation`) adds spine-y to the vertex y and THEN scales by sizeScale;
+offset is 0 at the anchor (u=0) so the fish stays on its path. `match` = fraction of the path
+curvature the body takes (**1 = body lies exactly on the rail**), `maxCurve` caps how tight the
+body itself bends. Tune with the rail tuner (`tester/turn.html`, circle + raw bend) — the HUD
+shows body-arc-radius vs rail-radius, equal at match 1.
 
 **Tail-flick (0.1.4):** the bend is driven by curvature (angularVelocity ÷ speed), which
 snaps to zero and back whenever the fish briefly finishes a turn and a crowding nudge starts

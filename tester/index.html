@@ -110,8 +110,8 @@ const DIALS = [
     ['params','maxForce',         0.01, 0.2, 0.005,  'max force'],
   ]],
   ['Body bend', [
-    ['bend','match',              0, 1, 0.02,        'bend match (arc)'],
-    ['bend','maxUnits',           1, 12, 0.5,        'bend cap (units)'],
+    ['bend','match',              0, 1.2, 0.02,      'bend match (1 = lies on path)'],
+    ['bend','maxCurve',           0.005, 0.03, 0.001,'bend curvature cap'],
     ['phys','BEND_SMOOTHING',     0.01, 0.3, 0.005,  'bend smoothing (anti-flick)'],
   ]],
   ['Wiggle', [

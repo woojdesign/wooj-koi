@@ -8,23 +8,26 @@ import { DEFAULT_SHAPE_PARAMS } from './koi-params.js';
 import { ANIMATION_CONFIG } from './animation-config.js';
 import { RENDERING_CONFIG } from './rendering-config.js';
 
-// Body bend when turning — matched to the ARC the fish is travelling. A fish turning with
-// radius R (turnRate = angularVelocity ÷ speed = 1/R) over a body of length L px should
-// deflect its centerline like that arc: the centerline is wave + bend·t² (px, t = 0 head →
-// 1 tail), and the parabola that approximates an arc of radius R is bend = ½·L²·(1/R) =
-// ½·L²·turnRate. The same bend continues into the tail (extendBodyWithTail), so the whole
-// fish is one arc and the tail can't detach. `match` dials the drama; `maxBodyFrac` caps the
-// tail so it can't swing past that fraction of a body length on very tight turns.
-export const KOI_BEND = { match: 0.3, maxUnits: 7 };
-function koiBend(turnRate, sizeScale) {
-    const match = KOI_BEND.match;
-    // Bend lives in SVG units (the deform adds it to the vertex y, THEN scales by sizeScale),
-    // so the drawn tail deflection is bend·sizeScale. To match an arc of radius R the drawn
-    // deflection ≈ ½·L_px²/R with L_px = 16·sizeScale and turnRate = 1/R, which gives
-    // bend = ½·16²·sizeScale·turnRate = 128·sizeScale·turnRate (units). Capped so a hard
-    // turn can't curl the fish into a hairpin.
-    const b = match * 128 * sizeScale * turnRate;
-    return Math.max(-KOI_BEND.maxUnits, Math.min(KOI_BEND.maxUnits, b));
+// Body bend when turning — the centerline is a true CIRCULAR ARC of the turn's curvature,
+// not a parabola. The old `bend·t²` was measured from the HEAD (t=0), so the head stayed put
+// and deflection piled up quadratically toward the tail — flinging the tail out and stretching
+// the wrist while the front stayed rigid. Instead: each spine point at body-axis offset u (px
+// from the anchor) sits on a circle of curvature κ, so its perpendicular offset is
+//   y(u) = (1 − cos(κ·u)) / κ.
+// That's EVEN in u (head and tail curve the same way toward the turn centre → the curvature is
+// distributed along the whole body, "beginning" at the middle), and it's BOUNDED (the tail
+// follows the arc instead of a runaway t²). Offset is 0 at the anchor (u=0), so the fish stays
+// on its path. Drawn deflection = y·sizeScale (the deform scales the spine), so we return units.
+// `match` = the fraction of the path curvature the body takes (1 = lies exactly on the rail);
+// `maxCurve` caps how tight the body itself will bend (px⁻¹).
+export const KOI_BEND = { match: 1.0, maxCurve: 0.02 };
+function koiCurvature(turnRate) {
+    return Math.max(-KOI_BEND.maxCurve, Math.min(KOI_BEND.maxCurve, KOI_BEND.match * turnRate));
+}
+// Perpendicular spine offset (in vertex units) at body-axis position xPx, for a given curvature.
+function arcOffset(curvature, xPx, sizeScale) {
+    if (Math.abs(curvature) < 1e-6) return 0;
+    return (1 - Math.cos(curvature * xPx)) / curvature / sizeScale;
 }
 
 /**
@@ -249,7 +252,7 @@ export class KoiRenderer {
 
         // Apply modifier size scaling
         const finalSizeScale = sizeScale * modifierSizeScale;
-        const bend = koiBend(turnRate, finalSizeScale); // body + tail curve matching the turn arc
+        const curvature = koiCurvature(turnRate); // circular-arc body bend (see koiCurvature)
 
         // Calculate body segment positions
         const segmentPositions = this.calculateSegments(
@@ -259,7 +262,7 @@ export class KoiRenderer {
             lengthMultiplier,
             shapeParams,
             waveAmplitudeScale,  // Separate wave amplitude scaling from size scaling
-            bend                 // Body curve applied to the segments when turning
+            curvature            // Body arc curvature when turning
         );
 
         // Save graphics state
@@ -291,10 +294,10 @@ export class KoiRenderer {
         // the whole fish is one shape over one centerline and the tail can't detach. Only
         // the procedural fallback (no body SVG) uses the old separate drawTail.
         if (svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0) {
-            const ext = this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, bend, tailLength);
+            const ext = this.extendBodyWithTail(svgVertices.body, segmentPositions, finalSizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength);
             this.drawBodyFromSVG(context, ext.segments, ext.verts, shapeParams, finalSizeScale, hue, saturation, brightness);
         } else {
-            this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, bend);
+            this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, curvature);
             this.drawBody(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness);
         }
 
@@ -321,7 +324,7 @@ export class KoiRenderer {
     /**
      * Calculate body segment positions with swimming wave motion
      */
-    calculateSegments(numSegments, waveTime, sizeScale, lengthMultiplier, shapeParams = DEFAULT_SHAPE_PARAMS, waveAmplitudeScale = 1.0, bend = 0) {
+    calculateSegments(numSegments, waveTime, sizeScale, lengthMultiplier, shapeParams = DEFAULT_SHAPE_PARAMS, waveAmplitudeScale = 1.0, curvature = 0) {
         // Pre-compute wave values once per frame (performance optimization)
         // Eliminates ~800 Math.sin() calls per frame by caching when time changes
         if (waveTime !== this.lastWaveTime || numSegments !== this.lastNumSegments) {
@@ -334,7 +337,7 @@ export class KoiRenderer {
             this.lastNumSegments = numSegments;
         }
 
-        // The spine curve when turning (grows toward the tail as t²) is passed in and
+        // The spine curve when turning is a circular arc of `curvature` about the anchor,
         // continued into the tail, so body and tail stay one connected arc.
         const segments = [];
 
@@ -346,7 +349,7 @@ export class KoiRenderer {
             const wave = this.waveCache[i] *
                       ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale *
                       (1 - t * ANIMATION_CONFIG.wave.dampening);
-            const y = wave + bend * t * t; // body centerline: swimming wave + turn bend
+            const y = wave + arcOffset(curvature, x, sizeScale); // swimming wave + circular-arc bend
 
             // Calculate width based on position using new parameters
             // Create a smooth curve from front to peak to tail
@@ -1194,11 +1197,11 @@ export class KoiRenderer {
      */
     /**
      * Extend the body into a tail so it's ONE shape over ONE bent centerline (can't
-     * detach). Continues the body's segments (same wave + bend·t², t running past 1) and
-     * splices a tail fan into the body's vertex loop at its tail-end (leftmost) edge.
+     * detach). Continues the body's segments (same wave + circular-arc bend, t running past 1)
+     * and splices a tail fan into the body's vertex loop at its tail-end (leftmost) edge.
      * @returns {{ verts: Array<{x,y}>, segments: Array<{x,y,w}> }}
      */
-    extendBodyWithTail(bodyVerts, bodySegments, sizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, bend, tailLength = 1.2) {
+    extendBodyWithTail(bodyVerts, bodySegments, sizeScale, lengthMultiplier, waveTime, waveAmplitudeScale, curvature, tailLength = 1.2) {
         const numSeg = bodySegments.length;
         const numTail = 7;
         const segments = bodySegments.slice();
@@ -1208,7 +1211,7 @@ export class KoiRenderer {
             const wave = Math.sin(waveTime - t * ANIMATION_CONFIG.wave.phaseGradient) *
                          ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale *
                          (1 - t * ANIMATION_CONFIG.wave.dampening);
-            segments.push({ x, y: wave + bend * t * t, w: 0 });
+            segments.push({ x, y: wave + arcOffset(curvature, x, sizeScale), w: 0 });
         }
 
         // Splice a tail fan into the body's vertex loop at its leftmost (tail-end) edge.
