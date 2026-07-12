@@ -1478,9 +1478,20 @@ export class KoiRenderer {
             }
         }
 
-        // Center position (middle of body)
+        // Center + size the texture on the DEFORMED spine so it covers the arc. segment.y is
+        // in SVG units → ×sizeScale. The old code fixed centerY = 0 and a body-height rect, so
+        // once the body arced the displaced parts (especially the head at the front) fell
+        // outside the rect → untextured → lighter. Centre on the spine and extend the height by
+        // the spine's Y range (which is ~0 when straight, so the straight look is unchanged).
+        let minSY = Infinity, maxSY = -Infinity;
+        for (let i = 0; i < segmentPositions.length; i++) {
+            const sy = segmentPositions[i].y * sizeScale;
+            if (sy < minSY) minSY = sy;
+            if (sy > maxSY) maxSY = sy;
+        }
         const centerX = (firstSeg.x + lastSeg.x) / 2;
-        const centerY = 0;
+        const centerY = (minSY + maxSY) / 2;
+        const arcYRange = maxSY - minSY;
 
         // Use original texture to preserve dark brush areas (authentic sumi-e)
         // Dark areas in the original brushstroke will appear as darker colors
@@ -1493,7 +1504,7 @@ export class KoiRenderer {
         context.blendMode(context.MULTIPLY);
         context.imageMode(context.CENTER);
         const textureWidth = bodyWidth * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE;
-        const textureHeight = bodyHeight * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE;
+        const textureHeight = bodyHeight * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE + arcYRange;
         context.image(bodyTexture, 0, 0, textureWidth, textureHeight);
         context.noTint();
 
