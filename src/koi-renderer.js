@@ -1500,51 +1500,38 @@ export class KoiRenderer {
             return; // Invalid body texture
         }
 
-        // Calculate body bounds
-        const firstSeg = segmentPositions[0];
-        const lastSeg = segmentPositions[segmentPositions.length - 1];
+        const segs = segmentPositions;
+        const n = segs.length;
+        if (n < 2) return;
 
-        // Body extends from head to tail
-        const bodyWidth = Math.abs(firstSeg.x - lastSeg.x);
+        // Slice height = body full width (clipped to the outline, so a little over is fine).
+        let maxW = 0;
+        for (let i = 0; i < n; i++) if (segs[i].w > maxW) maxW = segs[i].w;
+        const sliceHeight = maxW * 2 * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE;
 
-        // Find maximum segment width (optimized - no intermediate array)
-        let bodyHeight = 0;
-        for (let i = 0; i < segmentPositions.length; i++) {
-            if (segmentPositions[i].w > bodyHeight) {
-                bodyHeight = segmentPositions[i].w;
-            }
-        }
-
-        // Center + size the texture on the DEFORMED spine so it covers the arc. segment.y is
-        // in SVG units → ×sizeScale. The old code fixed centerY = 0 and a body-height rect, so
-        // once the body arced the displaced parts (especially the head at the front) fell
-        // outside the rect → untextured → lighter. Centre on the spine and extend the height by
-        // the spine's Y range (which is ~0 when straight, so the straight look is unchanged).
-        let minSY = Infinity, maxSY = -Infinity;
-        for (let i = 0; i < segmentPositions.length; i++) {
-            const sy = segmentPositions[i].y * sizeScale;
-            if (sy < minSY) minSY = sy;
-            if (sy > maxSY) maxSY = sy;
-        }
-        const centerX = (firstSeg.x + lastSeg.x) / 2;
-        const centerY = (minSY + maxSY) / 2;
-        const arcYRange = maxSY - minSY;
-
-        // Use original texture to preserve dark brush areas (authentic sumi-e)
-        // Dark areas in the original brushstroke will appear as darker colors
-        // This creates more natural brush texture variation vs alpha-only approach
         context.push();
-        context.translate(centerX, centerY);
-
-        // Apply color tint and draw with MULTIPLY to preserve luminosity
         context.tint(hue, saturation, brightness, BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_ALPHA);
         context.blendMode(context.MULTIPLY);
         context.imageMode(context.CENTER);
-        const textureWidth = bodyWidth * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE;
-        const textureHeight = bodyHeight * BRUSH_TEXTURE_CONFIG.BODY_TEXTURE_SCALE + arcYRange;
-        context.image(bodyTexture, 0, 0, textureWidth, textureHeight);
-        context.noTint();
 
+        // Draw the brush texture in SLICES that follow the deformed spine — each slice is the
+        // texture column for that segment, placed + rotated to the local tangent — so the
+        // texture bends with the body instead of sitting as a flat rect over a curved fish.
+        const texW = bodyTexture.width, texH = bodyTexture.height;
+        for (let i = 0; i < n - 1; i++) {
+            const a = segs[i], b = segs[i + 1];
+            const ax = a.x, ay = a.y * sizeScale, bx = b.x, by = b.y * sizeScale;
+            const dx = bx - ax, dy = by - ay;
+            const segLen = Math.hypot(dx, dy);
+            const sx = (i / (n - 1)) * texW, sw = texW / (n - 1);
+            context.push();
+            context.translate((ax + bx) / 2, (ay + by) / 2);
+            context.rotate(Math.atan2(dy, dx));
+            context.image(bodyTexture, 0, 0, segLen * 1.06, sliceHeight, sx, 0, sw, texH); // slight overlap hides seams
+            context.pop();
+        }
+        context.noTint();
+        context.blendMode(context.BLEND);
         context.pop();
     }
 
