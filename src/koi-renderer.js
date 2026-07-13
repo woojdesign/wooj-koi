@@ -297,7 +297,7 @@ export class KoiRenderer {
             pectoralFin: svgVertices.pectoralFin,
             dorsalFin: null, // Don't draw dorsal fin yet
             ventralFin: svgVertices.ventralFin
-        }, { speedFraction, turnRate, flick });
+        });
         // The caudal fin is a SEPARATE shape, pinned + rotated at the body-end tangent (drawn
         // BEHIND the body so the wrist tucks under it), so it's a distinct trailing fin rather
         // than a continuation of the body outline. It stays attached because it's placed at the
@@ -555,7 +555,7 @@ export class KoiRenderer {
      * @param {Array<{x,y}>} [svgVertices.dorsalFin] - Dorsal fin vertices
      * @param {Array<{x,y}>} [svgVertices.ventralFin] - Ventral fin vertices
      */
-    drawFins(context, segmentPositions, shapeParams, waveTime, sizeScale, hue, saturation, brightness, svgVertices = {}, motion = {}) {
+    drawFins(context, segmentPositions, shapeParams, waveTime, sizeScale, hue, saturation, brightness, svgVertices = {}) {
         // Guard: Validate segment positions
         if (!segmentPositions || !Array.isArray(segmentPositions) || segmentPositions.length === 0) {
             return; // Cannot draw fins without segments
@@ -568,17 +568,6 @@ export class KoiRenderer {
             // SVG-based fin rendering
             const finSway = Math.sin(waveTime - 0.5) * ANIMATION_CONFIG.fins.pectoral.swayAmplitude;
 
-            // Fin behaviour driven by how the fish is actually moving. Pectorals work OPPOSITE
-            // to the tail: active + flared when slow/braking/hovering, tucked + quiet when
-            // gliding fast or darting. And they're asymmetric in a turn — the INSIDE fin flares
-            // and sculls harder to brake that side (which pivots the fish).
-            const spd = Math.max(0, Math.min(1, motion.speedFraction ?? 0));
-            const flick = Math.max(0, Math.min(1, motion.flick ?? 0));
-            const turnSig = Math.max(-1, Math.min(1, (motion.turnRate ?? 0) / 0.012)); // signed turn strength
-            const pecActivity = (0.35 + 0.65 * (1 - spd)) * (1 - 0.6 * flick); // scull hard slow, quiet fast/darting
-            const pecTuck = 0.55 * (0.55 * spd + 0.75 * flick);                // sweep the fins back at speed
-            const baseRot = ANIMATION_CONFIG.fins.pectoral.rotationAmplitude;
-
             // Pectoral fins (left and right)
             const finPos = segmentPositions[shapeParams.pectoralPos];
             if (!finPos) return; // Guard: ensure pectoral position segment exists
@@ -588,10 +577,10 @@ export class KoiRenderer {
                 this.drawFinFromSVG(
                     context, finPos, svgVertices.pectoralFin,
                     shapeParams.pectoralYTop,
-                    shapeParams.pectoralAngleTop + pecTuck + 0.45 * turnSig, // tuck at speed + flare on the inside
+                    shapeParams.pectoralAngleTop,
                     waveTime,
-                    baseRot * pecActivity * (1 + 0.8 * turnSig),             // inside fin sculls harder
-                    finSway * pecActivity,
+                    ANIMATION_CONFIG.fins.pectoral.rotationAmplitude,
+                    finSway,
                     sizeScale,
                     hue, saturation, brightness,
                     'none'
@@ -601,10 +590,10 @@ export class KoiRenderer {
                 this.drawFinFromSVG(
                     context, finPos, svgVertices.pectoralFin,
                     shapeParams.pectoralYBottom,
-                    shapeParams.pectoralAngleBottom + pecTuck - 0.45 * turnSig, // tuck + (opposite) turn flare
+                    shapeParams.pectoralAngleBottom,
                     waveTime,
-                    -baseRot * pecActivity * (1 - 0.8 * turnSig),
-                    -finSway * pecActivity,
+                    -ANIMATION_CONFIG.fins.pectoral.rotationAmplitude, // Negative for opposite rotation
+                    -finSway, // Opposite sway
                     sizeScale,
                     hue, saturation, brightness,
                     'vertical' // Mirror vertically for bottom fin
@@ -651,18 +640,13 @@ export class KoiRenderer {
             if (!ventralPos) return; // Guard: ensure ventral position segment exists
 
             if (svgVertices.ventralFin) {
-                // Ventrals are trim/stabilizer fins: subtle, gentle, most active when hovering
-                // (slow) and quieted at cruising speed. Small opposite bias in a turn to help
-                // hold the roll while the pectorals do the braking.
-                const ventActivity = 0.4 + 0.35 * (1 - spd);
-                const ventBase = ANIMATION_CONFIG.fins.ventral.rotationAmplitude;
                 // Top ventral fin
                 this.drawFinFromSVG(
                     context, ventralPos, svgVertices.ventralFin,
                     shapeParams.ventralYTop,
-                    shapeParams.ventralAngleTop + 0.15 * turnSig,
+                    shapeParams.ventralAngleTop,
                     waveTime,
-                    ventBase * ventActivity,
+                    ANIMATION_CONFIG.fins.ventral.rotationAmplitude,
                     0, // No sway
                     sizeScale,
                     hue, saturation, brightness,
@@ -673,9 +657,9 @@ export class KoiRenderer {
                 this.drawFinFromSVG(
                     context, ventralPos, svgVertices.ventralFin,
                     shapeParams.ventralYBottom,
-                    shapeParams.ventralAngleBottom - 0.15 * turnSig,
+                    shapeParams.ventralAngleBottom,
                     waveTime,
-                    -ventBase * ventActivity, // Opposite rotation
+                    -ANIMATION_CONFIG.fins.ventral.rotationAmplitude, // Opposite rotation
                     0,
                     sizeScale,
                     hue, saturation, brightness,
