@@ -34,9 +34,13 @@
   textarea { width:100%; height:150px; margin-top:8px; background:#0f0e0c; color:#cfc8ba; border:1px solid var(--line);
              border-radius:5px; font-family:inherit; font-size:10.5px; padding:8px; }
   .note { font-size:10.5px; color:var(--muted); margin-top:4px; line-height:1.4; }
+  #panelToggle { position:fixed; top:8px; right:8px; z-index:200; font-family:inherit; font-size:14px; line-height:1;
+    background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:7px 10px; cursor:pointer; opacity:.9; }
+  #app.collapsed aside { display:none; }
 </style>
 </head>
 <body>
+<button id="panelToggle" title="toggle panel">✕</button>
 <div id="app">
   <div id="stage"><div id="hud"></div></div>
   <aside>
@@ -281,6 +285,13 @@ new p5((p) => {
   });
   document.getElementById('respawn').addEventListener('click', () => buildFlock(p));
 }, document.getElementById('stage'));
+</script>
+<script>
+  (function(){ var a=document.getElementById('app'), b=document.getElementById('panelToggle');
+    function set(c){ a.classList.toggle('collapsed', c); b.textContent = c?'☰':'✕'; window.dispatchEvent(new Event('resize')); }
+    b.addEventListener('click', function(){ set(!a.classList.contains('collapsed')); });
+    if (window.innerWidth < 700) set(true);
+  })();
 </script>
 </body>
 </html>
