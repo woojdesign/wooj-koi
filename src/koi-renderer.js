@@ -250,12 +250,16 @@ export class KoiRenderer {
         // un-textured procedural koi (the "bad vectors") before the sumi-e outline arrives.
         if (!(svgVertices.body && svgVertices.body.length > 0)) return;
 
-        const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0, speedFraction = 0 } = animationParams;
+        const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0, speedFraction = 0, flick = 0 } = animationParams;
         const { brightnessBoost = 0, saturationBoost = 0, sizeScale: modifierSizeScale = 1 } = modifiers;
 
         // Apply modifier size scaling
         const finalSizeScale = sizeScale * modifierSizeScale;
         const curvature = koiCurvature(turnRate); // circular-arc body bend (see koiCurvature)
+
+        // Swim gait: undulation amplitude glides low then flicks to full (flick 0→1).
+        const flickAmp = ANIMATION_CONFIG.wave.glideAmp + (1 - ANIMATION_CONFIG.wave.glideAmp) * flick;
+        const swimAmp = waveAmplitudeScale * flickAmp;
 
         // Calculate body segment positions
         const segmentPositions = this.calculateSegments(
@@ -264,7 +268,7 @@ export class KoiRenderer {
             finalSizeScale,
             lengthMultiplier,
             shapeParams,
-            waveAmplitudeScale,  // Separate wave amplitude scaling from size scaling
+            swimAmp,             // wave amplitude (base × gait flick)
             curvature            // Body arc curvature when turning
         );
 
@@ -300,7 +304,7 @@ export class KoiRenderer {
         // body's actual arc-end point with the body's exit tangent.
         const hasBodySvg = svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0;
         if (show.tail && hasBodySvg) {
-            this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, hue, saturation, brightness);
+            this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, flick, hue, saturation, brightness);
         }
         if (show.body) {
             if (hasBodySvg) {
@@ -347,7 +351,7 @@ export class KoiRenderer {
      * to the body's exit tangent (with a gentle flap). Because it's placed at the real end
      * point + tangent, it stays attached without being part of the body's deforming outline.
      */
-    drawPinnedTail(context, bodySegments, sizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, hue, saturation, brightness) {
+    drawPinnedTail(context, bodySegments, sizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, flick, hue, saturation, brightness) {
         const n = bodySegments.length;
         if (n < 2) return;
         const end = bodySegments[n - 1], prev = bodySegments[n - 2];
@@ -359,8 +363,11 @@ export class KoiRenderer {
         // draws together as the fish drives forward (water forcing the fins back).
         const spd = Math.max(0, Math.min(1, speedFraction));
         const grade = ANIMATION_CONFIG.wave.phaseGradient;
-        const flap = Math.sin(waveTime - grade) * 0.20 * (0.25 + 0.75 * spd);         // whole-fan wag (rad)
-        const tipSway = Math.sin(waveTime - grade - 0.9) * 0.45 * (0.25 + 0.75 * spd); // lagged tip sway (units) → flow
+        // wag drive: scales with speed AND the gait flick (a hard tail-kick on the burst).
+        const ga = ANIMATION_CONFIG.wave.glideAmp;
+        const wagDrive = (0.25 + 0.75 * spd) * (ga + (1 - ga) * (flick || 0));
+        const flap = Math.sin(waveTime - grade) * 0.20 * wagDrive;                    // whole-fan wag (rad)
+        const tipSway = Math.sin(waveTime - grade - 0.9) * 0.45 * wagDrive;           // lagged tip sway (units) → flow
         const pinch = 1 - 0.35 * spd;                                                 // fork narrows with speed
 
         // Forked caudal fan (SVG units), wrist at local origin, lobes extending -x. Narrow wrist
@@ -447,7 +454,8 @@ export class KoiRenderer {
             // Use cached wave value instead of calling Math.sin() (performance optimization)
             const wave = this.waveCache[i] *
                       ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale *
-                      (1 - t * ANIMATION_CONFIG.wave.dampening);
+                      // amplitude envelope: calm at the head, growing toward the tail (the "whip")
+                      (ANIMATION_CONFIG.wave.headAmp + (1 - ANIMATION_CONFIG.wave.headAmp) * Math.pow(t, ANIMATION_CONFIG.wave.tailPower));
             const y = wave + arcOffset(curvature, x, sizeScale); // swimming wave + circular-arc bend
 
             // Calculate width based on position using new parameters

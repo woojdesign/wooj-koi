@@ -11,6 +11,14 @@ export const PHYSICS_CONFIG = {
     // Swimming wiggle: tail-beat phase advances by speed × this each frame.
     WAVE_RATE: 0.13,
 
+    // Swim GAIT: fish burst-then-glide instead of undulating uniformly. gaitPhase advances by
+    // GAIT_RATE; the flick (a sharp burst envelope) boosts the beat rate, the wave amplitude,
+    // and gives a forward propulsion pulse — so a fish flicks its tail, darts, then coasts.
+    GAIT_RATE: 0.045,            // gait cycles/frame-ish (a beat-burst every ~2.3s)
+    FLICK_RATE: 0.9,             // beat-rate boost at full flick (faster beats mid-burst)
+    FLICK_PROPULSION: 0.5,       // forward speed boost at full flick (the dart)
+    // (undulation amplitude while gliding lives in ANIMATION_CONFIG.wave.glideAmp — a render dial)
+
     // Dead-zone threshold - ignore forces below this magnitude
     DEAD_ZONE_THRESHOLD: 0.01,
 

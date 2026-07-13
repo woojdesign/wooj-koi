@@ -230,7 +230,7 @@ new p5((p) => {
       const ampScale = rail.size * (0.4 + 0.6*speedFrac);
       renderer.render(p, cur.x, cur.y, cur.heading, {
         shapeParams: DEFAULT_SHAPE_PARAMS, colorParams:{ h:14, s:55, b:92 }, pattern:{ spots:[] },
-        animationParams:{ waveTime: wavePhase, sizeScale, waveAmplitudeScale: ampScale, lengthMultiplier:1, tailLength:1.3, turnRate, speedFraction: speedFrac },
+        animationParams:{ waveTime: wavePhase, sizeScale, waveAmplitudeScale: ampScale, lengthMultiplier:1, tailLength:1.3, turnRate, speedFraction: speedFrac, flick: 1 },
         modifiers:{ brightnessBoost:0, saturationBoost:0, sizeScale:1 }, boidSeed:7, svgVertices,
       });
       if (rail.overlay) {

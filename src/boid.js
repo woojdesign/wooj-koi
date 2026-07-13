@@ -28,6 +28,8 @@ export class Boid {
         this.renderCurvature = 0; // smoothed curvature the renderer bends the body by
         this.wanderHeading = this.heading; // where it steers while broken off
         this.wavePhase = 0; // swimming-wiggle phase — advances with speed, so a slow fish wiggles slowly
+        this.gaitPhase = randomFunc(0, Math.PI * 2); // swim-gait phase (burst/glide), per-fish offset
+        this.flick = 0; // current gait burst intensity (0 gliding → 1 mid-flick)
 
         // Force smoothing — steadies the *desired* direction frame to frame.
         this.previousSeparation = createVectorFunc();
@@ -124,6 +126,13 @@ export class Boid {
         const V = this.velocity.constructor; // p5.Vector
         const topSpeed = maxSpeed * this.speedMultiplier;
 
+        // Swim gait: a sharp burst-then-glide envelope so the fish flicks its tail and coasts
+        // instead of undulating at a constant rate. `flick` spikes briefly (the propulsive
+        // beat) then sits near zero (gliding). Drives beat-rate, amplitude, and propulsion.
+        this.gaitPhase += PHYSICS_CONFIG.GAIT_RATE * (0.8 + 0.4 * this.speedMultiplier);
+        const burst = Math.max(0, Math.sin(this.gaitPhase));
+        this.flick = burst * burst; // mostly gliding (near 0), sharp flicks toward 1
+
         // Where does it want to go? Normally the flocking forces decide. But when it
         // has broken off (independent), it steers to its own wander heading and
         // meanders solo — so the school sheds a fish now and then instead of locking
@@ -139,6 +148,9 @@ export class Boid {
             desiredSpeed = Math.min(target.mag(), topSpeed);
             desiredSpeed = Math.max(desiredSpeed, topSpeed * PHYSICS_CONFIG.MIN_SPEED_FRACTION);
         }
+        // Propulsion pulse: a flick darts the fish forward (above top speed briefly); it coasts
+        // back down between flicks. The speed low-pass makes it accelerate-then-glide.
+        desiredSpeed *= (1 + this.flick * PHYSICS_CONFIG.FLICK_PROPULSION);
 
         // Shortest signed angle to the desired heading.
         let diff = desiredHeading - this.heading;
@@ -163,9 +175,9 @@ export class Boid {
         // Ease speed toward its target.
         this.speed += (desiredSpeed - this.speed) * PHYSICS_CONFIG.SPEED_SMOOTHING;
 
-        // Advance the swimming wiggle by how fast the fish is actually moving, so the
-        // tail-beat matches the pace (slow fish wiggle slowly, not frantically).
-        this.wavePhase += this.speed * PHYSICS_CONFIG.WAVE_RATE;
+        // Advance the swimming wiggle by how fast the fish is actually moving (so the tail-beat
+        // matches the pace), sped up mid-flick so the burst beats faster than the glide.
+        this.wavePhase += this.speed * PHYSICS_CONFIG.WAVE_RATE * (1 + this.flick * PHYSICS_CONFIG.FLICK_RATE);
 
         // Curvature the renderer bends the body by. Smoothed on its OWN (slower) time
         // constant so the tail eases between straight and curved instead of snapping when

@@ -138,6 +138,7 @@ export async function createKoiBackground(options = {}) {
             lengthMultiplier: boid.lengthMultiplier,
             tailLength: boid.tailLength,
             speedFraction: speedFrac, // drives the tail wag + fork pinch
+            flick: boid.flick,        // swim-gait burst (glide↔flick undulation)
             // curvature (1/turn-radius): the body flex tracks the arc. Smoothed on its own
             // time constant (boid.renderCurvature) so the tail eases in/out, never snaps.
             turnRate: boid.renderCurvature,

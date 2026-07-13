@@ -8,7 +8,10 @@ export const ANIMATION_CONFIG = {
     wave: {
         phaseGradient: 3.5,      // Controls wave propagation along body (0-1 becomes 0-3.5)
         amplitude: 0.55,         // base wiggle amplitude (per fish it also scales with speed)
-        dampening: 0.2,           // Wave dampening towards tail (1 - t * dampening)
+        dampening: 0.2,           // (legacy) Wave dampening towards tail (1 - t * dampening)
+        headAmp: 0.18,           // AMPLITUDE ENVELOPE: body-wave amplitude at the head (fraction)...
+        tailPower: 1.7,          // ...growing toward the tail as headAmp→1 over t^tailPower (the "whip")
+        glideAmp: 0.28,          // GAIT: undulation amplitude while gliding (flick=0), fraction of full
         dorsalDampening: 0.5      // Wave dampening for dorsal fin
     },
 

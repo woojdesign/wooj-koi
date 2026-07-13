@@ -118,7 +118,14 @@ const DIALS = [
     ['wave','amplitude',          0, 2, 0.05,        'wave amplitude'],
     ['phys','WAVE_RATE',          0.02, 0.4, 0.01,   'wave rate (× speed)'],
     ['wave','phaseGradient',      0.5, 6, 0.1,       'wave phase gradient'],
-    ['wave','dampening',          0, 0.6, 0.02,      'wave dampening → tail'],
+    ['wave','headAmp',            0, 1, 0.02,        'head amplitude (envelope)'],
+    ['wave','tailPower',          0.5, 4, 0.1,       'tail growth power (whip)'],
+  ]],
+  ['Gait (glide + flick)', [
+    ['phys','GAIT_RATE',          0.01, 0.15, 0.005, 'gait rate (burst frequency)'],
+    ['wave','glideAmp',           0, 1, 0.02,        'glide amplitude (between flicks)'],
+    ['phys','FLICK_RATE',         0, 2, 0.1,         'flick beat-rate boost'],
+    ['phys','FLICK_PROPULSION',   0, 1.5, 0.05,      'flick propulsion (dart)'],
   ]],
 ];
 
@@ -232,7 +239,8 @@ new p5((p) => {
       const renderParams = {
         shapeParams: DEFAULT_SHAPE_PARAMS, colorParams: boid.color, pattern: boid.pattern,
         animationParams: { waveTime, sizeScale, waveAmplitudeScale: ampScale,
-          lengthMultiplier: boid.lengthMultiplier, tailLength: boid.tailLength, turnRate: boid.renderCurvature },
+          lengthMultiplier: boid.lengthMultiplier, tailLength: boid.tailLength, turnRate: boid.renderCurvature,
+          speedFraction: speedFrac, flick: boid.flick },
         modifiers: { brightnessBoost:0, saturationBoost:0, sizeScale:1 },
         boidSeed: Math.floor(boid.animationOffset * 1000), svgVertices,
       };
