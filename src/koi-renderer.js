@@ -566,21 +566,21 @@ export class KoiRenderer {
 
         if (useSVG) {
             // SVG-based fin rendering
-            const finSway = Math.sin(waveTime - 0.5) * ANIMATION_CONFIG.fins.pectoral.swayAmplitude;
-
             // Pectoral fins (left and right)
             const finPos = segmentPositions[shapeParams.pectoralPos];
             if (!finPos) return; // Guard: ensure pectoral position segment exists
 
             if (svgVertices.pectoralFin) {
+                // Pectorals just "hang loose" — no active sway or rotation, held in a fixed
+                // relaxed pose and carried along by the body. (No finSway, zero rotation amp.)
                 // Top pectoral fin (left)
                 this.drawFinFromSVG(
                     context, finPos, svgVertices.pectoralFin,
                     shapeParams.pectoralYTop,
                     shapeParams.pectoralAngleTop,
                     waveTime,
-                    ANIMATION_CONFIG.fins.pectoral.rotationAmplitude,
-                    finSway,
+                    0,
+                    0,
                     sizeScale,
                     hue, saturation, brightness,
                     'none'
@@ -592,8 +592,8 @@ export class KoiRenderer {
                     shapeParams.pectoralYBottom,
                     shapeParams.pectoralAngleBottom,
                     waveTime,
-                    -ANIMATION_CONFIG.fins.pectoral.rotationAmplitude, // Negative for opposite rotation
-                    -finSway, // Opposite sway
+                    0,
+                    0,
                     sizeScale,
                     hue, saturation, brightness,
                     'vertical' // Mirror vertically for bottom fin
