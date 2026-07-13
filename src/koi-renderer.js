@@ -640,13 +640,14 @@ export class KoiRenderer {
             if (!ventralPos) return; // Guard: ensure ventral position segment exists
 
             if (svgVertices.ventralFin) {
+                // Ventrals also hang loose — fixed relaxed pose, no rotation or sway.
                 // Top ventral fin
                 this.drawFinFromSVG(
                     context, ventralPos, svgVertices.ventralFin,
                     shapeParams.ventralYTop,
                     shapeParams.ventralAngleTop,
                     waveTime,
-                    ANIMATION_CONFIG.fins.ventral.rotationAmplitude,
+                    0,
                     0, // No sway
                     sizeScale,
                     hue, saturation, brightness,
@@ -659,7 +660,7 @@ export class KoiRenderer {
                     shapeParams.ventralYBottom,
                     shapeParams.ventralAngleBottom,
                     waveTime,
-                    -ANIMATION_CONFIG.fins.ventral.rotationAmplitude, // Opposite rotation
+                    0,
                     0,
                     sizeScale,
                     hue, saturation, brightness,
