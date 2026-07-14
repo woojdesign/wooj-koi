@@ -485,15 +485,19 @@ export class KoiRenderer {
         // continued into the tail, so body and tail stay one connected arc.
         const segments = [];
 
+        // Measured amplitude envelope (see ANIMATION_CONFIG.wave.envelope): a·+·b·t·+·c·t²
+        // normalized to the tail. Node/pivot sits ~0.2 BL back; the head keeps a small yaw.
+        const env = ANIMATION_CONFIG.wave.envelope;
+        const envRef = env.a + env.b + env.c; // amplitude at the tail (t=1), for normalization
+
         for (let i = 0; i < numSegments; i++) {
             const t = i / numSegments;
             const x = this.lerp(7, -9, t) * sizeScale * lengthMultiplier;
             // Wave amplitude uses separate scaling to avoid exaggerated motion when rendering at larger sizes
             // Use cached wave value instead of calling Math.sin() (performance optimization)
+            const ampEnv = (env.a + env.b * t + env.c * t * t) / envRef;
             const wave = this.waveCache[i] *
-                      ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale *
-                      // amplitude envelope: calm at the head, growing toward the tail (the "whip")
-                      (ANIMATION_CONFIG.wave.headAmp + (1 - ANIMATION_CONFIG.wave.headAmp) * Math.pow(t, ANIMATION_CONFIG.wave.tailPower));
+                      ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale * ampEnv;
             const y = wave + arcOffset(curvature, x, sizeScale); // swimming wave + circular-arc bend
 
             // Calculate width based on position using new parameters
