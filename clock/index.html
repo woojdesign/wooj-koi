@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1016">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>koi clock</title>
+<style>
+  :root { --warm: #e9e4d8; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #0d1016;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #pond { position: fixed; inset: 0; z-index: 0; }
+  #pond canvas { display: block; }
+
+  /* Time-of-day veil that dims the koi at night. */
+  #veil { position: fixed; inset: 0; z-index: 1; background: #0d1016; opacity: 0; pointer-events: none; transition: opacity 4s ease; }
+
+  #clock {
+    position: fixed; inset: 0; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--warm);
+    transition: opacity 4s ease;
+    -webkit-user-select: none;
+  }
+
+  /* Digital */
+  .digital { text-align: center; font-family: -apple-system, "SF Pro Display", system-ui, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .digital .time {
+    font-weight: 200;
+    font-size: clamp(4.5rem, 26vw, 15rem);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .digital .ampm {
+    margin-top: 1.4rem;
+    font-size: clamp(0.8rem, 3.4vw, 1.5rem);
+    letter-spacing: 0.42em;
+    text-transform: lowercase;
+    opacity: 0.5;
+    padding-left: 0.42em; /* balance the letter-spacing */
+  }
+
+  /* Analog */
+  .analog { width: min(74vw, 74vh); height: min(74vw, 74vh); }
+  .analog .tick { stroke: var(--warm); stroke-width: 1.4; opacity: 0.28; }
+  .analog .tick.h { opacity: 0.5; stroke-width: 2; }
+  .analog .hand { stroke: var(--warm); stroke-linecap: round; }
+  .analog .hour { stroke-width: 4.5; opacity: 0.9; }
+  .analog .minute { stroke-width: 3; opacity: 0.9; }
+  .analog .pin { fill: var(--warm); opacity: 0.9; }
+
+  .hidden { display: none; }
+
+  #hint {
+    position: fixed; left: 0; right: 0; bottom: env(safe-area-inset-bottom, 1.5rem); bottom: max(env(safe-area-inset-bottom), 1.5rem);
+    z-index: 3; text-align: center; color: var(--warm); opacity: 0.35;
+    font-family: -apple-system, system-ui, sans-serif; font-size: 0.85rem; letter-spacing: 0.16em; text-transform: lowercase;
+    transition: opacity 1.2s ease; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div id="pond"></div>
+  <div id="veil"></div>
+  <div id="clock">
+    <!-- Digital -->
+    <div class="digital" id="digital">
+      <div class="time" id="dTime">–:–</div>
+      <div class="ampm" id="dAmPm"></div>
+    </div>
+    <!-- Analog -->
+    <svg class="analog hidden" id="analog" viewBox="-150 -150 300 300" aria-hidden="true">
+      <g id="ticks"></g>
+      <line class="hand hour"   id="hHour"   x1="0" y1="0" x2="0" y2="-62"></line>
+      <line class="hand minute" id="hMinute" x1="0" y1="0" x2="0" y2="-100"></line>
+      <circle class="pin" r="4"></circle>
+    </svg>
+  </div>
+  <div id="hint">tap to switch</div>
+
+  <script type="module">
+    import { createKoiBackground } from '../src/index.js';
+
+    // A calm, dark night pond — a few slow koi.
+    createKoiBackground({
+      container: '#pond',
+      assetBase: '/koi',
+      count: 3,
+      followPointer: false,
+      background: [15, 18, 24, 16],           // deep warm-blue water wash (low alpha → faint trails)
+      physics: { maxSpeed: 0.32, maxForce: 0.035, separationWeight: 1.6, cohesionWeight: 0.7 },
+    }).catch(() => {});
+
+    // ---- Clock ----------------------------------------------------------
+    const dTime = document.getElementById('dTime');
+    const dAmPm = document.getElementById('dAmPm');
+    const digital = document.getElementById('digital');
+    const analog = document.getElementById('analog');
+    const hHour = document.getElementById('hHour');
+    const hMinute = document.getElementById('hMinute');
+    const veil = document.getElementById('veil');
+    const clock = document.getElementById('clock');
+    const hint = document.getElementById('hint');
+
+    // Build analog tick marks (12, with the hour ones bolder).
+    const ticks = document.getElementById('ticks');
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const outer = 132, inner = i % 3 === 0 ? 116 : 123;
+      const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ln.setAttribute('x1', (Math.sin(a) * inner).toFixed(2));
+      ln.setAttribute('y1', (-Math.cos(a) * inner).toFixed(2));
+      ln.setAttribute('x2', (Math.sin(a) * outer).toFixed(2));
+      ln.setAttribute('y2', (-Math.cos(a) * outer).toFixed(2));
+      ln.setAttribute('class', i % 3 === 0 ? 'tick h' : 'tick');
+      ticks.appendChild(ln);
+    }
+
+    // Ambient-brightness curve by hour (0..1): bright by day, embers deep at night.
+    const ANCHORS = [[0,0.12],[3,0.06],[6,0.30],[9,0.90],[12,0.96],[18,0.90],[21,0.50],[22.5,0.32],[23.5,0.18],[24,0.12]];
+    function ambient(h) {
+      for (let i = 0; i < ANCHORS.length - 1; i++) {
+        const [h0, b0] = ANCHORS[i], [h1, b1] = ANCHORS[i + 1];
+        if (h >= h0 && h <= h1) return b0 + (b1 - b0) * ((h - h0) / (h1 - h0));
+      }
+      return 0.5;
+    }
+
+    function render() {
+      const now = new Date();
+      let h = now.getHours();
+      const m = now.getMinutes();
+
+      // Digital (12h, no leading zero, no seconds)
+      const ampm = h < 12 ? 'am' : 'pm';
+      let h12 = h % 12; if (h12 === 0) h12 = 12;
+      dTime.textContent = `${h12}:${String(m).padStart(2, '0')}`;
+      dAmPm.textContent = ampm;
+
+      // Analog hands (smooth minute; hour advances with the minute)
+      const minA = (m / 60) * 360;
+      const hourA = ((h % 12) / 12) * 360 + (m / 60) * 30;
+      hMinute.setAttribute('transform', `rotate(${minA})`);
+      hHour.setAttribute('transform', `rotate(${hourA})`);
+
+      // Time-of-day dimming
+      const b = ambient(h + m / 60);
+      veil.style.opacity = ((1 - b) * 0.82).toFixed(3);      // dim the koi at night
+      clock.style.opacity = (0.26 + 0.6 * b).toFixed(3);     // keep time faintly readable, floor ~0.26
+    }
+    render();
+    setInterval(render, 1000);
+
+    // ---- Digital / analog toggle ---------------------------------------
+    let mode = localStorage.getItem('koiClockMode') || 'digital';
+    function applyMode() {
+      digital.classList.toggle('hidden', mode !== 'digital');
+      analog.classList.toggle('hidden', mode !== 'analog');
+    }
+    applyMode();
+    let hintShown = true;
+    clock.addEventListener('pointerdown', () => {
+      mode = mode === 'digital' ? 'analog' : 'digital';
+      localStorage.setItem('koiClockMode', mode);
+      applyMode();
+      if (hintShown) { hint.style.opacity = '0'; hintShown = false; }
+      requestWake();
+    });
+    setTimeout(() => { if (hintShown) { hint.style.opacity = '0'; hintShown = false; } }, 6000);
+
+    // ---- Keep the screen awake (best-effort; the "mockup" version) ------
+    let wakeLock = null;
+    async function requestWake() {
+      try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    }
+    requestWake();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWake(); });
+  </script>
+</body>
+</html>

@@ -76,6 +76,9 @@ export async function createKoiBackground(options = {}) {
     assetBase = '/koi',
     followPointer = true,
     physics = {},
+    // Per-frame wash painted behind the koi: [r, g, b, a] (0-255). The low alpha leaves faint
+    // motion trails. Default is the warm paper cream; pass a dark value for a night "pond".
+    background = [244, 240, 230, 12],
   } = options;
 
   const el = typeof container === 'string' ? document.querySelector(container) : container;
@@ -125,7 +128,7 @@ export async function createKoiBackground(options = {}) {
 
     p.draw = function () {
       p.clear();
-      p.background(244, 240, 230, 12);
+      p.background(...background);
       if (followPointer) {
         if (p.mouseX >= 0 && p.mouseY >= 0 && p.mouseX <= p.width && p.mouseY <= p.height &&
             (p.mouseX !== p.pmouseX || p.mouseY !== p.pmouseY)) {
