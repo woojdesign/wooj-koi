@@ -42,6 +42,20 @@ export class BrushTextures {
     }
 
     /**
+     * True once the brush images are actually DECODED (width > 0), not merely referenced.
+     * p5's loadImage() returns a placeholder that fills in asynchronously, so `isReady`
+     * (set optimistically in loadImages) can be true while the pixels aren't there yet —
+     * checking width avoids flashing a flat, un-textured koi before the brush arrives.
+     */
+    imagesDecoded() {
+        const b = this.textures.body;
+        if (!(this.isReady && b && b.width)) return false;       // body brush is the main flash source
+        const spots = this.textures.spots;
+        if (spots && spots.length > 0) return !!(spots[0] && spots[0].width); // wait on spots too if present
+        return true;
+    }
+
+    /**
      * Set p5 instance reference
      * @param {Object} p5 - p5.js instance
      */
