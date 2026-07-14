@@ -17,6 +17,20 @@ import { BrushTextures } from './brush-textures.js';
 import { SVGParser } from './svg-parser.js';
 import { DEFAULT_SHAPE_PARAMS } from './koi-params.js';
 
+// Low-level building blocks, re-exported so apps that drive their own p5 loop (the koi
+// simulator / editor) can consume the same renderer, flock, varieties, and configs instead
+// of forking a copy. `createKoiBackground` (below) remains the high-level one-call entry.
+export { KoiRenderer, KOI_BEND } from './koi-renderer.js';
+export { FlockManager } from './flock-manager.js';
+export { Boid } from './boid.js';
+export { BrushTextures } from './brush-textures.js';
+export { SVGParser } from './svg-parser.js';
+export { DEFAULT_SHAPE_PARAMS, copyParams } from './koi-params.js';
+export { VARIETIES, selectVariety, generatePattern } from './koi-varieties.js';
+export { ANIMATION_CONFIG } from './animation-config.js';
+export { RENDERING_CONFIG } from './rendering-config.js';
+export { PHYSICS_CONFIG } from './physics-config.js';
+
 const P5_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js';
 
 function loadP5() {

@@ -50,3 +50,8 @@ export const DEFAULT_SHAPE_PARAMS = {
     ventralYBottom: 1.5,
     ventralAngleBottom: 2.5
 };
+
+/** Shallow copy of a shape-params object (used by the editor when forking presets). */
+export function copyParams(params) {
+    return { ...params };
+}
