@@ -332,7 +332,7 @@ export class KoiRenderer {
             pectoralFin: svgVertices.pectoralFin,
             dorsalFin: null, // Don't draw dorsal fin yet
             ventralFin: svgVertices.ventralFin
-        }));
+        }, { speedFraction, turnRate, flick }));
         // The caudal fin is a SEPARATE shape, pinned + rotated at the body-end tangent (drawn
         // BEHIND the body so the wrist tucks under it), so it's a distinct trailing fin rather
         // than a continuation of the body outline. It stays attached because it's placed at the
@@ -404,9 +404,16 @@ export class KoiRenderer {
         // wag drive: scales with speed AND the gait flick (a hard tail-kick on the burst).
         const ga = ANIMATION_CONFIG.wave.glideAmp;
         const wagDrive = (0.25 + 0.75 * spd) * (ga + (1 - ga) * (flick || 0));
-        const flap = Math.sin(waveTime - grade) * 0.20 * wagDrive;                    // whole-fan wag (rad)
-        const tipSway = Math.sin(waveTime - grade - 0.9) * 0.45 * wagDrive;           // lagged tip sway (units) → flow
-        const pinch = 1 - 0.35 * spd;                                                 // fork narrows with speed
+        // Caudal fin as a heaving + pitching foil: the peduncle heaves laterally with the body
+        // wave, and the fin PITCH lags that heave by ~a quarter cycle (π/2) — the phase that
+        // gives a thrust-producing angle of attack. The fan also SPREADS its rays at mid-stroke
+        // (peak lateral velocity = peak load) and eases shut on the coast, layered over the
+        // speed-streamlining pinch (the fork drawing together as the fish drives forward).
+        const heavePhase = waveTime - ((n - 1) / n) * grade;                          // peduncle lateral phase
+        const flap = Math.sin(heavePhase - Math.PI / 2) * 0.20 * wagDrive;            // pitch lags heave 90° (rad)
+        const tipSway = Math.sin(heavePhase - Math.PI / 2 - 0.6) * 0.45 * wagDrive;   // tips lag the base → flow
+        const strokeSpread = Math.abs(Math.cos(heavePhase)) * wagDrive;              // 0 at stroke ends, max mid-stroke (only while beating)
+        const pinch = (1 - 0.35 * spd) * (1 + 0.30 * strokeSpread);                   // streamline + power-stroke spread
 
         // Forked caudal fan (SVG units), wrist at local origin, lobes extending -x. Narrow wrist
         // (fine attachment) widening to the lobes; f scaled by `pinch`; tips carry the lagged sway.
@@ -597,7 +604,7 @@ export class KoiRenderer {
      * @param {Array<{x,y}>} [svgVertices.dorsalFin] - Dorsal fin vertices
      * @param {Array<{x,y}>} [svgVertices.ventralFin] - Ventral fin vertices
      */
-    drawFins(context, segmentPositions, shapeParams, waveTime, sizeScale, hue, saturation, brightness, svgVertices = {}) {
+    drawFins(context, segmentPositions, shapeParams, waveTime, sizeScale, hue, saturation, brightness, svgVertices = {}, motion = {}) {
         // Guard: Validate segment positions
         if (!segmentPositions || !Array.isArray(segmentPositions) || segmentPositions.length === 0) {
             return; // Cannot draw fins without segments
@@ -607,21 +614,29 @@ export class KoiRenderer {
         const useSVG = svgVertices.pectoralFin || svgVertices.dorsalFin || svgVertices.ventralFin;
 
         if (useSVG) {
+            // Paired-fin behaviour driven by how the fish is moving. At cruise the pectorals stay
+            // TUCKED (hang loose) — real fish don't flap them at speed. They only wake up to SCULL
+            // when the fish is slow / hovering, and the INSIDE fin flares out to brake during a
+            // turn. Hard-gated on low speed so a normally-cruising koi keeps the relaxed pose.
+            const spd = Math.max(0, Math.min(1, motion.speedFraction ?? 0));
+            const turnSig = Math.max(-1, Math.min(1, (motion.turnRate ?? 0) / 0.012));
+            const scull = Math.max(0, 1 - spd / 0.45);      // 1 hovering → 0 above ~45% top speed
+            const scullAmp = 0.30 * scull;                  // gentle sculling rotation (rad), only when slow
+            const flare = 0.35 * turnSig;                   // inside pectoral rotates out to brake the turn
+
             // SVG-based fin rendering
             // Pectoral fins (left and right)
             const finPos = segmentPositions[shapeParams.pectoralPos];
             if (!finPos) return; // Guard: ensure pectoral position segment exists
 
             if (svgVertices.pectoralFin) {
-                // Pectorals just "hang loose" — no active sway or rotation, held in a fixed
-                // relaxed pose and carried along by the body. (No finSway, zero rotation amp.)
-                // Top pectoral fin (left)
+                // Top pectoral fin (left) — inside fin in a turnSig>0 turn
                 this.drawFinFromSVG(
                     context, finPos, svgVertices.pectoralFin,
                     shapeParams.pectoralYTop,
-                    shapeParams.pectoralAngleTop,
+                    shapeParams.pectoralAngleTop + flare,
                     waveTime,
-                    0,
+                    scullAmp,
                     0,
                     sizeScale,
                     hue, saturation, brightness,
@@ -632,9 +647,9 @@ export class KoiRenderer {
                 this.drawFinFromSVG(
                     context, finPos, svgVertices.pectoralFin,
                     shapeParams.pectoralYBottom,
-                    shapeParams.pectoralAngleBottom,
+                    shapeParams.pectoralAngleBottom - flare,
                     waveTime,
-                    0,
+                    -scullAmp,
                     0,
                     sizeScale,
                     hue, saturation, brightness,
