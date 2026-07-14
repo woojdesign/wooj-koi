@@ -10,8 +10,10 @@
 <style>
   @font-face {
     font-family: "Big Bird";
-    src: url("fonts/TAYBigBirdRegular.woff2") format("woff2"),
-         url("fonts/TAYBigBirdRegular.woff") format("woff");
+    /* Absolute path: /clock is served with AND without a trailing slash, and a relative
+       "fonts/…" breaks (404) when opened as /clock — which is what iOS did. */
+    src: url("/clock/fonts/TAYBigBirdRegular.woff2") format("woff2"),
+         url("/clock/fonts/TAYBigBirdRegular.woff") format("woff");
     font-weight: 400; font-style: normal; font-display: swap;
   }
   :root {
@@ -46,8 +48,10 @@
     color: var(--warm);
     transition: opacity 4s ease;
     -webkit-user-select: none;
-    padding: max(env(safe-area-inset-top), 7vmin) max(env(safe-area-inset-right), 7vmin)
-             max(env(safe-area-inset-bottom), 7vmin) max(env(safe-area-inset-left), 7vmin);
+    /* Design margin ADDED to the safe-area inset, not max'd — so in landscape the content clears
+       the Dynamic Island/notch with breathing room instead of hugging its inner edge. */
+    padding: calc(env(safe-area-inset-top) + 5.5vmin) calc(env(safe-area-inset-right) + 5.5vmin)
+             calc(env(safe-area-inset-bottom) + 5.5vmin) calc(env(safe-area-inset-left) + 5.5vmin);
   }
   .panel { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
 
@@ -316,12 +320,10 @@
       let h12 = h % 12; if (h12 === 0) h12 = 12;
       dTime.textContent = `${h12}:${String(m).padStart(2, '0')}`;
 
-      // Colophon tier 1 — now · date · temp
+      // Colophon tier 1 — now · date (temperature lives in the forecast strip's "now" column)
       const days = ['sun','mon','tue','wed','thu','fri','sat'];
       const mons = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-      const temp = weather && weather.current ? `${Math.round(weather.current.temperature_2m)}°` : null;
-      dNow.textContent = `${ampm} · ${days[now.getDay()]} ${now.getDate()} ${mons[now.getMonth()]}`
-        + (temp ? ` · ${temp}` : '');
+      dNow.textContent = `${ampm} · ${days[now.getDay()]} ${now.getDate()} ${mons[now.getMonth()]}`;
 
       // Colophon tier 2 — moon phase (glyph + name) · ISO week · day-of-year folio
       const p = moonPhase(now);
