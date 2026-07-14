@@ -8,7 +8,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>koi clock</title>
 <style>
-  :root { --warm: #e9e4d8; }
+  :root {
+    --warm: #e9e4d8;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     height: 100%;
@@ -31,28 +34,39 @@
     color: var(--warm);
     transition: opacity 4s ease;
     -webkit-user-select: none;
+    padding: max(env(safe-area-inset-top), 4vmin) max(env(safe-area-inset-right), 4vmin)
+             max(env(safe-area-inset-bottom), 4vmin) max(env(safe-area-inset-left), 4vmin);
+  }
+  /* The clock content is centered; in landscape it sits centered within the LEFT half, leaving
+     the right as open water for the koi (like the homelab reference). */
+  .panel { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  @media (orientation: landscape) {
+    #clock { justify-content: flex-start; }
+    .panel { width: 50%; }
   }
 
-  /* Digital */
-  .digital { text-align: center; font-family: -apple-system, "SF Pro Display", system-ui, "Segoe UI", Helvetica, Arial, sans-serif; }
+  /* Digital — a clean mono time (tabular), with the small tracked-mono chrome underneath. */
+  .digital { font-family: var(--mono); }
   .digital .time {
-    font-weight: 200;
-    font-size: clamp(4.5rem, 26vw, 15rem);
-    letter-spacing: -0.02em;
+    font-weight: 340;
+    font-size: min(23vw, 42vh);
+    letter-spacing: -0.03em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
-  .digital .ampm {
-    margin-top: 1.4rem;
-    font-size: clamp(0.8rem, 3.4vw, 1.5rem);
-    letter-spacing: 0.42em;
-    text-transform: lowercase;
-    opacity: 0.5;
-    padding-left: 0.42em; /* balance the letter-spacing */
+  .digital .meta {
+    margin-top: 1.6rem;
+    display: flex; gap: 1.1em; align-items: baseline; justify-content: center;
+    font-family: var(--mono);
+    font-size: clamp(0.72rem, 1.6vmin, 1.05rem);
+    letter-spacing: 0.34em; text-transform: uppercase;
+    padding-left: 0.34em; /* balance the tracking */
   }
+  .digital .ampm { opacity: 0.62; }
+  .digital .date { opacity: 0.36; }
 
   /* Analog */
-  .analog { width: min(74vw, 74vh); height: min(74vw, 74vh); }
+  .analog { width: min(58vmin, 92%); height: min(58vmin, 92%); }
   .analog .tick { stroke: var(--warm); stroke-width: 1.4; opacity: 0.28; }
   .analog .tick.h { opacity: 0.5; stroke-width: 2; }
   .analog .hand { stroke: var(--warm); stroke-linecap: round; }
@@ -74,18 +88,23 @@
   <div id="pond"></div>
   <div id="veil"></div>
   <div id="clock">
-    <!-- Digital -->
-    <div class="digital" id="digital">
-      <div class="time" id="dTime">–:–</div>
-      <div class="ampm" id="dAmPm"></div>
+    <div class="panel">
+      <!-- Digital -->
+      <div class="digital" id="digital">
+        <div class="time" id="dTime">–:–</div>
+        <div class="meta">
+          <span class="ampm" id="dAmPm"></span>
+          <span class="date" id="dDate"></span>
+        </div>
+      </div>
+      <!-- Analog -->
+      <svg class="analog hidden" id="analog" viewBox="-150 -150 300 300" aria-hidden="true">
+        <g id="ticks"></g>
+        <line class="hand hour"   id="hHour"   x1="0" y1="0" x2="0" y2="-62"></line>
+        <line class="hand minute" id="hMinute" x1="0" y1="0" x2="0" y2="-100"></line>
+        <circle class="pin" r="4"></circle>
+      </svg>
     </div>
-    <!-- Analog -->
-    <svg class="analog hidden" id="analog" viewBox="-150 -150 300 300" aria-hidden="true">
-      <g id="ticks"></g>
-      <line class="hand hour"   id="hHour"   x1="0" y1="0" x2="0" y2="-62"></line>
-      <line class="hand minute" id="hMinute" x1="0" y1="0" x2="0" y2="-100"></line>
-      <circle class="pin" r="4"></circle>
-    </svg>
   </div>
   <div id="hint">tap to switch</div>
 
@@ -99,12 +118,15 @@
       count: 3,
       followPointer: false,
       background: [15, 18, 24, 16],           // deep warm-blue water wash (low alpha → faint trails)
+      scale: 7.7,                             // fixed mid-size (between the phone 5.5 / desktop 9.9),
+                                              // so koi stay the same calm size in portrait & landscape
       physics: { maxSpeed: 0.32, maxForce: 0.035, separationWeight: 1.6, cohesionWeight: 0.7 },
     }).catch(() => {});
 
     // ---- Clock ----------------------------------------------------------
     const dTime = document.getElementById('dTime');
     const dAmPm = document.getElementById('dAmPm');
+    const dDate = document.getElementById('dDate');
     const digital = document.getElementById('digital');
     const analog = document.getElementById('analog');
     const hHour = document.getElementById('hHour');
@@ -147,6 +169,9 @@
       let h12 = h % 12; if (h12 === 0) h12 = 12;
       dTime.textContent = `${h12}:${String(m).padStart(2, '0')}`;
       dAmPm.textContent = ampm;
+      const days = ['sun','mon','tue','wed','thu','fri','sat'];
+      const mons = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+      dDate.textContent = `${days[now.getDay()]} ${mons[now.getMonth()]} ${now.getDate()}`;
 
       // Analog hands (smooth minute; hour advances with the minute)
       const minA = (m / 60) * 360;

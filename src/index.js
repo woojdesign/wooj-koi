@@ -79,6 +79,9 @@ export async function createKoiBackground(options = {}) {
     // Per-frame wash painted behind the koi: [r, g, b, a] (0-255). The low alpha leaves faint
     // motion trails. Default is the warm paper cream; pass a dark value for a night "pond".
     background = [244, 240, 230, 12],
+    // Koi render scale. Default keeps the responsive breakpoint (small on phones, larger on
+    // desktop). Pass a fixed number for a consistent size regardless of viewport/orientation.
+    scale,
   } = options;
 
   const el = typeof container === 'string' ? document.querySelector(container) : container;
@@ -140,7 +143,7 @@ export async function createKoiBackground(options = {}) {
       flock.update(params, mouseTarget);
       for (const boid of flock.boids) {
         const waveTime = boid.wavePhase + boid.animationOffset;
-        const sizeScale = boid.sizeMultiplier * (p.width < 640 ? 5.5 : 9.9);
+        const sizeScale = boid.sizeMultiplier * (scale ?? (p.width < 640 ? 5.5 : 9.9));
         // Wiggle amplitude tracks speed, so a gliding fish undulates gently.
         const speedFrac = Math.min(1, boid.speed / (params.maxSpeed * boid.speedMultiplier));
         // Fish encode speed in tail-beat FREQUENCY, not amplitude (Bainbridge 1958; Strouhal
