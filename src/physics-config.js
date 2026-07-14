@@ -42,7 +42,9 @@ export const PHYSICS_CONFIG = {
     // traces the same arc, just slower along it. This lets the fish swim FORWARD through
     // the turn instead of pivoting in place (a fixed rate gave ~0.23 body-lengths).
     TURN_RADIUS_FACTOR: 134.6,
-    MAX_TURN_RATE: 0.02,         // absolute safety ceiling on rad/frame (radius governs normally)
+    MAX_TURN_RATE: 0.026,        // absolute safety ceiling on rad/frame (radius governs normally).
+                                 // A touch higher so a fish can round a corner without shedding as
+                                 // much speed (less "slow down to turn"), still short of a pivot.
     TURN_RESPONSIVENESS: 0.12,   // how eagerly it steers toward the desired heading
     // Anti-wobble: near equilibrium the fish makes endless tiny corrections toward a
     // desired heading that itself jitters, so the rotation micro-reverses frame to
@@ -56,8 +58,9 @@ export const PHYSICS_CONFIG = {
                                  // brief turn-abort blips (when crowding nudges the heading)
                                  // instead of snapping straight↔curved — the tail "jitter"
     SPEED_SMOOTHING: 0.08,       // how gently speed eases toward its target
-    MIN_SPEED_FRACTION: 0.6,     // keep gliding forward (esp. through turns) — a higher floor
-                                 // means it doesn't slow to a near-pivot mid-turn
+    MIN_SPEED_FRACTION: 0.78,    // keep gliding forward (esp. through turns) — a higher floor
+                                 // means it doesn't slow to a near-pivot mid-turn. Raised from
+                                 // 0.6 so fish hold more of their pace while carving a corner.
 
     // Force prioritization thresholds
     SEPARATION_HIGH_THRESHOLD: 0.05,    // When separation force this strong, prioritize 90%
