@@ -62,16 +62,32 @@
     font-variant-numeric: tabular-nums;
     margin-left: -0.15em;   /* null Big Bird's ~0.15em digit left side-bearing → ink sits on the margin */
   }
+  /* Colophon: tiered metadata under the time — tracked micro-caps, tabular figures, hierarchy
+     by opacity. Everything hangs off the same left margin (−0.15em nulls the digit bearing). */
   .digital .meta {
-    margin-top: 1.5rem;
-    display: flex; gap: 1.1em; align-items: baseline;
-    font-family: var(--display);
-    font-size: clamp(0.78rem, 1.7vmin, 1.1rem);
-    letter-spacing: 0.22em; text-transform: uppercase;
-    margin-left: -0.15em;   /* same, in the chrome's own em, so its ink lines up with the time */
+    display: flex; align-items: center; gap: 0.85em;
+    font-family: var(--display); letter-spacing: 0.2em; text-transform: uppercase;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+    margin-left: -0.15em;
   }
-  .digital .ampm { opacity: 0.6; }
-  .digital .date { opacity: 0.34; }
+  .digital .tier1 { margin-top: 1.4rem; font-size: clamp(0.76rem, 1.65vmin, 1.05rem); opacity: 0.6; }
+  .digital .tier2 { margin-top: 0.7rem; font-size: clamp(0.66rem, 1.4vmin, 0.9rem);  opacity: 0.38; }
+  .digital .moon { width: 1.2em; height: 1.2em; flex: none; }
+  .digital .moon-base { fill: var(--warm); opacity: 0.16; }
+  .digital .moon-lit  { fill: var(--warm); }
+
+  /* Hourly forecast strip (Open-Meteo): minimal line icons + tabular temps, editorial micro. */
+  .forecast {
+    margin-top: 2rem; margin-left: -0.15em;
+    display: flex; gap: clamp(1.1rem, 3.2vmin, 2.4rem);
+    font-family: var(--display); opacity: 0.42;
+    font-variant-numeric: tabular-nums;
+  }
+  .forecast .fc { display: flex; flex-direction: column; align-items: center; gap: 0.5em; }
+  .forecast .fc-time { font-size: clamp(0.56rem, 1.2vmin, 0.76rem); letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.7; }
+  .forecast .fc-ico { width: clamp(1.3rem, 3.4vmin, 1.9rem); height: clamp(1.3rem, 3.4vmin, 1.9rem); }
+  .forecast .fc-ico * { fill: none; stroke: var(--warm); stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; }
+  .forecast .fc-temp { font-size: clamp(0.72rem, 1.6vmin, 1rem); }
 
   /* Analog */
   .analog { width: min(46vmin, 100%); height: min(46vmin, 100%); }
@@ -101,10 +117,15 @@
       <!-- Digital -->
       <div class="digital" id="digital">
         <div class="time" id="dTime">–:–</div>
-        <div class="meta">
-          <span class="ampm" id="dAmPm"></span>
-          <span class="date" id="dDate"></span>
+        <div class="meta tier1"><span id="dNow"></span></div>
+        <div class="meta tier2">
+          <svg class="moon" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="moon-base" cx="50" cy="50" r="46"></circle>
+            <path class="moon-lit" id="moonLit"></path>
+          </svg>
+          <span id="dCelestial"></span>
         </div>
+        <div class="forecast" id="forecast"></div>
       </div>
       <!-- Analog -->
       <svg class="analog hidden" id="analog" viewBox="-150 -150 300 300" aria-hidden="true">
@@ -134,8 +155,10 @@
 
     // ---- Clock ----------------------------------------------------------
     const dTime = document.getElementById('dTime');
-    const dAmPm = document.getElementById('dAmPm');
-    const dDate = document.getElementById('dDate');
+    const dNow = document.getElementById('dNow');
+    const dCelestial = document.getElementById('dCelestial');
+    const moonLit = document.getElementById('moonLit');
+    const forecast = document.getElementById('forecast');
     const digital = document.getElementById('digital');
     const analog = document.getElementById('analog');
     const hHour = document.getElementById('hHour');
@@ -193,6 +216,96 @@
       return { top: GRAD[0][1], bot: GRAD[0][2] };
     }
 
+    // ---- Moon phase (pure date math, no location) ----------------------
+    function moonPhase(date) {
+      const synodic = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14, 0);
+      let p = (((date.getTime() - ref) / 86400000) % synodic) / synodic;
+      return p < 0 ? p + 1 : p;            // 0 = new, 0.5 = full, 1 = new
+    }
+    function moonName(p) {
+      if (p < 0.02 || p > 0.98) return 'new moon';
+      if (p < 0.23) return 'waxing crescent';
+      if (p < 0.27) return 'first quarter';
+      if (p < 0.48) return 'waxing gibbous';
+      if (p < 0.52) return 'full moon';
+      if (p < 0.73) return 'waning gibbous';
+      if (p < 0.77) return 'last quarter';
+      return 'waning crescent';
+    }
+    // Lit region of a disc radius 46 centred (50,50): outer limb arc + elliptical terminator.
+    function moonLitPath(p) {
+      const r = 46, top = `50,${50 - r}`, bot = `50,${50 + r}`;
+      const rx = (r * Math.abs(Math.cos(2 * Math.PI * p))).toFixed(2);
+      let outer, inner;
+      if (p <= 0.5) { outer = 1; inner = p < 0.25 ? 1 : 0; }   // waxing → lit on the right
+      else          { outer = 0; inner = p < 0.75 ? 0 : 1; }   // waning → lit on the left
+      return `M ${top} A ${r},${r} 0 0 ${outer} ${bot} A ${rx},${r} 0 0 ${inner} ${top} Z`;
+    }
+
+    // ---- Calendar index ------------------------------------------------
+    function isoWeek(d) {
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7) + 3);   // nearest Thursday
+      const firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+      firstThu.setUTCDate(firstThu.getUTCDate() - ((firstThu.getUTCDay() + 6) % 7) + 3);
+      return 1 + Math.round((t - firstThu) / (7 * 86400000));
+    }
+    const dayOfYear = (d) => Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+    const daysInYear = (y) => ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365;
+
+    // ---- Weather (Open-Meteo, free/no-key). Hardcoded location for the mockup; a permanent
+    //      build would use geolocation. Minimal WMO-code → line-icon mapping. ----------------
+    const LOC = { lat: 40.71, lon: -74.01, label: 'nyc' };   // TODO: geolocation for a real build
+    function wmoIcon(code, isDay) {
+      const sun = `<circle cx="50" cy="50" r="20"/><g><line x1="50" y1="12" x2="50" y2="20"/><line x1="50" y1="80" x2="50" y2="88"/><line x1="12" y1="50" x2="20" y2="50"/><line x1="80" y1="50" x2="88" y2="50"/><line x1="24" y1="24" x2="30" y2="30"/><line x1="70" y1="70" x2="76" y2="76"/><line x1="76" y1="24" x2="70" y2="30"/><line x1="30" y1="70" x2="24" y2="76"/></g>`;
+      const moon = `<path d="M63 24 A30 30 0 1 0 63 76 A24 24 0 1 1 63 24 Z"/>`;
+      const cloud = `<path d="M30 68 A16 16 0 0 1 33 37 A20 20 0 0 1 71 43 A14 14 0 0 1 70 68 Z"/>`;
+      const clear = isDay ? sun : moon;
+      const partly = (isDay
+        ? `<circle cx="38" cy="40" r="14"/><line x1="38" y1="16" x2="38" y2="21"/><line x1="16" y1="40" x2="21" y2="40"/><line x1="22" y1="24" x2="26" y2="28"/><line x1="54" y1="24" x2="50" y2="28"/>`
+        : `<path d="M50 22 A22 22 0 1 0 50 62 A17 17 0 1 1 50 22 Z"/>`)
+        + `<path d="M40 74 A13 13 0 0 1 42 49 A16 16 0 0 1 73 54 A11 11 0 0 1 72 74 Z"/>`;
+      const rain = cloud + `<g><line x1="38" y1="74" x2="34" y2="84"/><line x1="52" y1="74" x2="48" y2="84"/><line x1="66" y1="74" x2="62" y2="84"/></g>`;
+      const snow = cloud + `<g><line x1="38" y1="78" x2="38" y2="78"/><line x1="52" y1="82" x2="52" y2="82"/><line x1="66" y1="78" x2="66" y2="78"/></g>`;
+      const fog = `<line x1="22" y1="40" x2="78" y2="40"/><line x1="18" y1="54" x2="74" y2="54"/><line x1="26" y1="68" x2="70" y2="68"/>`;
+      const storm = cloud + `<path d="M52 70 L44 84 L52 84 L46 96"/>`;
+      let g;
+      if (code === 0) g = clear;
+      else if (code <= 2) g = partly;
+      else if (code === 3) g = cloud;
+      else if (code <= 48) g = fog;
+      else if (code <= 67) g = rain;
+      else if (code <= 77) g = snow;
+      else if (code <= 82) g = rain;
+      else if (code <= 86) g = snow;
+      else g = storm;
+      return `<svg class="fc-ico" viewBox="0 0 100 100">${g}</svg>`;
+    }
+    let weather = null;
+    async function fetchWeather() {
+      try {
+        const u = `https://api.open-meteo.com/v1/forecast?latitude=${LOC.lat}&longitude=${LOC.lon}`
+          + `&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day`
+          + `&temperature_unit=fahrenheit&timezone=auto&forecast_hours=8`;
+        const r = await fetch(u); const j = await r.json();
+        weather = j;
+        renderForecast();
+      } catch (e) { /* offline — the clock is fine without it */ }
+    }
+    function renderForecast() {
+      if (!weather || !weather.hourly) return;
+      const H = weather.hourly, n = Math.min(7, H.time.length);
+      let html = '';
+      for (let i = 0; i < n; i++) {
+        const d = new Date(H.time[i]);
+        let hr = d.getHours(); const ap = hr < 12 ? 'a' : 'p'; hr = hr % 12; if (hr === 0) hr = 12;
+        const label = i === 0 ? 'now' : `${hr}${ap}`;
+        const temp = Math.round(H.temperature_2m[i]);
+        html += `<div class="fc"><span class="fc-time">${label}</span>${wmoIcon(H.weather_code[i], H.is_day[i])}<span class="fc-temp">${temp}°</span></div>`;
+      }
+      forecast.innerHTML = html;
+    }
+
     function render() {
       const now = new Date();
       let h = now.getHours();
@@ -202,10 +315,18 @@
       const ampm = h < 12 ? 'am' : 'pm';
       let h12 = h % 12; if (h12 === 0) h12 = 12;
       dTime.textContent = `${h12}:${String(m).padStart(2, '0')}`;
-      dAmPm.textContent = ampm;
+
+      // Colophon tier 1 — now · date · temp
       const days = ['sun','mon','tue','wed','thu','fri','sat'];
       const mons = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-      dDate.textContent = `${days[now.getDay()]} ${mons[now.getMonth()]} ${now.getDate()}`;
+      const temp = weather && weather.current ? `${Math.round(weather.current.temperature_2m)}°` : null;
+      dNow.textContent = `${ampm} · ${days[now.getDay()]} ${now.getDate()} ${mons[now.getMonth()]}`
+        + (temp ? ` · ${temp}` : '');
+
+      // Colophon tier 2 — moon phase (glyph + name) · ISO week · day-of-year folio
+      const p = moonPhase(now);
+      moonLit.setAttribute('d', moonLitPath(p));
+      dCelestial.textContent = `${moonName(p)} · w${isoWeek(now)} · ${dayOfYear(now)}/${daysInYear(now.getFullYear())}`;
 
       // Analog hands (smooth minute; hour advances with the minute)
       const minA = (m / 60) * 360;
@@ -223,6 +344,10 @@
     }
     render();
     setInterval(render, 1000);
+
+    // Weather: fetch now + every 30 min.
+    fetchWeather();
+    setInterval(fetchWeather, 30 * 60 * 1000);
 
     // ---- Digital / analog toggle ---------------------------------------
     let mode = localStorage.getItem('koiClockMode') || 'digital';
