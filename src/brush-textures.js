@@ -15,9 +15,13 @@ export class BrushTextures {
         this.isReady = false;
         this.p5Instance = null;
 
-        // Simple cache to prevent memory leaks
+        // LRU-ish cache of pre-tinted spot sprites. A miss allocates a p5.Graphics (createGraphics
+        // + tint + blit), so the cap must exceed the number of distinct tinted-spot variants on
+        // screen — roughly (varieties on screen) × (spot textures) × (colour/alpha buckets). At 50
+        // (tuned for a 5-koi background) a large, varied flock thrashes this every frame and pays a
+        // createGraphics per spot. 256 comfortably holds a full flock; the sprites are small.
         this.tintCache = new Map();
-        this.maxCacheSize = 50;  // Limit cache size for 5 koi
+        this.maxCacheSize = 256;
     }
 
     /**

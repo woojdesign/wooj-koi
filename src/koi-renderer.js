@@ -24,6 +24,41 @@ export const KOI_BEND = { match: 1.0, maxCurve: 0.02 };
 function koiCurvature(turnRate) {
     return Math.max(-KOI_BEND.maxCurve, Math.min(KOI_BEND.maxCurve, KOI_BEND.match * turnRate));
 }
+
+// Opt-in per-stage profiler. Off by default (near-zero cost). Enable EITHER with
+//   window.__KOI_PROFILE = true      (from the console, any time)
+// or by adding ?koiprofile to the page URL. Every ~240 fish-renders it logs avg ms/fish per
+// render stage (+ share of total) as both a console.table and a plain "[koi-profile] …" line.
+const KOI_PROFILE = {
+    acc: {}, fish: 0, report: 240,
+    urlEnabled: typeof window !== 'undefined' && !!(window.location && /[?&]koiprofile\b/.test(window.location.search))
+};
+function koiProfileOn() {
+    return typeof window !== 'undefined' && (window.__KOI_PROFILE === true || KOI_PROFILE.urlEnabled);
+}
+function profStage(label, fn) {
+    if (!koiProfileOn()) return fn();
+    const t0 = performance.now();
+    const r = fn();
+    KOI_PROFILE.acc[label] = (KOI_PROFILE.acc[label] || 0) + (performance.now() - t0);
+    return r;
+}
+function profTickFish() {
+    if (!koiProfileOn()) return;
+    if (++KOI_PROFILE.fish < KOI_PROFILE.report) return;
+    const n = KOI_PROFILE.fish;
+    const rows = Object.entries(KOI_PROFILE.acc).map(([k, ms]) => ({ stage: k, 'ms/fish': +(ms / n).toFixed(4) }));
+    const total = rows.reduce((s, r) => s + r['ms/fish'], 0);
+    rows.forEach(r => { r['%'] = +(100 * r['ms/fish'] / (total || 1)).toFixed(1); });
+    rows.push({ stage: 'TOTAL', 'ms/fish': +total.toFixed(4), '%': 100 });
+    const line = rows.map(r => `${r.stage}=${r['ms/fish']}ms(${r['%']}%)`).join('  ');
+    // eslint-disable-next-line no-console
+    console.log(`[koi-profile] n=${n}  ${line}`);
+    // eslint-disable-next-line no-console
+    if (console.table) console.table(rows);
+    KOI_PROFILE.acc = {};
+    KOI_PROFILE.fish = 0;
+}
 // Perpendicular spine offset (in vertex units) at body-axis position xPx, for a given curvature.
 function arcOffset(curvature, xPx, sizeScale) {
     if (Math.abs(curvature) < 1e-6) return 0;
@@ -262,7 +297,7 @@ export class KoiRenderer {
         const swimAmp = waveAmplitudeScale * flickAmp;
 
         // Calculate body segment positions
-        const segmentPositions = this.calculateSegments(
+        const segmentPositions = profStage('segments', () => this.calculateSegments(
             shapeParams.numSegments,
             waveTime,
             finalSizeScale,
@@ -270,7 +305,7 @@ export class KoiRenderer {
             shapeParams,
             swimAmp,             // wave amplitude (base × gait flick)
             curvature            // Body arc curvature when turning
-        );
+        ));
 
         // Save graphics state
         context.push();
@@ -293,26 +328,28 @@ export class KoiRenderer {
 
         const show = this.parts;
 
-        if (show.fins) this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
+        if (show.fins) profStage('fins_pec_ven', () => this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
             pectoralFin: svgVertices.pectoralFin,
             dorsalFin: null, // Don't draw dorsal fin yet
             ventralFin: svgVertices.ventralFin
-        });
+        }));
         // The caudal fin is a SEPARATE shape, pinned + rotated at the body-end tangent (drawn
         // BEHIND the body so the wrist tucks under it), so it's a distinct trailing fin rather
         // than a continuation of the body outline. It stays attached because it's placed at the
         // body's actual arc-end point with the body's exit tangent.
         const hasBodySvg = svgVertices.body && Array.isArray(svgVertices.body) && svgVertices.body.length > 0;
         if (show.tail && hasBodySvg) {
-            this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, flick, hue, saturation, brightness);
+            profStage('tail', () => this.drawPinnedTail(context, segmentPositions, finalSizeScale, tailLength, waveTime, waveAmplitudeScale, speedFraction, flick, hue, saturation, brightness));
         }
         if (show.body) {
-            if (hasBodySvg) {
-                this.drawBodyFromSVG(context, segmentPositions, svgVertices.body, shapeParams, finalSizeScale, hue, saturation, brightness);
-            } else {
-                this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, curvature);
-                this.drawBody(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness);
-            }
+            profStage('body', () => {
+                if (hasBodySvg) {
+                    this.drawBodyFromSVG(context, segmentPositions, svgVertices.body, shapeParams, finalSizeScale, hue, saturation, brightness);
+                } else {
+                    this.drawTail(context, segmentPositions, shapeParams, waveTime, finalSizeScale, tailLength, hue, saturation, brightness, svgVertices.tail, waveAmplitudeScale, curvature);
+                    this.drawBody(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness);
+                }
+            });
         }
 
         if (show.head) {
@@ -320,30 +357,31 @@ export class KoiRenderer {
             // (pinned to the body front) instead of pointing along the base heading.
             const s0 = segmentPositions[0], s1 = segmentPositions[1] || s0;
             const headAngle = Math.atan2((s0.y - s1.y) * finalSizeScale, s0.x - s1.x);
-            this.drawHead(context, s0, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices.head, headAngle);
+            profStage('head', () => this.drawHead(context, s0, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices.head, headAngle));
         }
 
         // Clip body texture and spots to body+head outline for cleaner appearance
         // Single clipping region shared by both operations (performance optimization)
         if (show.body && (show.texture || show.spots)) {
-            this.clipToBodyAndHead(context, segmentPositions, svgVertices, shapeParams, finalSizeScale);
-            if (show.texture) this.applyBodyTexture(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices);
-            if (show.spots) this.drawSpots(context, segmentPositions, pattern.spots || [], finalSizeScale, boidSeed, angle, brightness);
+            profStage('clip', () => this.clipToBodyAndHead(context, segmentPositions, svgVertices, shapeParams, finalSizeScale));
+            if (show.texture) profStage('texture', () => this.applyBodyTexture(context, segmentPositions, shapeParams, finalSizeScale, hue, saturation, brightness, svgVertices));
+            if (show.spots) profStage('spots', () => this.drawSpots(context, segmentPositions, pattern.spots || [], finalSizeScale, boidSeed, angle, brightness));
             context.drawingContext.restore(); // Remove clip
         }
 
         // Draw dorsal fin last so it appears on top of the body
-        if (show.fins) this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
+        if (show.fins) profStage('fins_dorsal', () => this.drawFins(context, segmentPositions, shapeParams, waveTime, finalSizeScale, hue, saturation, brightness, {
             pectoralFin: null, // Don't draw pectoral fins again
             dorsalFin: svgVertices.dorsalFin, // Only draw dorsal fin
             ventralFin: null // Don't draw ventral fins again
-        });
+        }));
 
         // Debug: the deformer skeleton (spine centerline + rib normals) over the fish.
         if (show.skeleton) this.drawSkeleton(context, segmentPositions, finalSizeScale);
 
         // Restore graphics state
         context.pop();
+        profTickFish();
     }
 
     /**
