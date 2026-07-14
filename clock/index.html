@@ -60,6 +60,7 @@
     letter-spacing: -0.01em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    margin-left: -0.15em;   /* null Big Bird's ~0.15em digit left side-bearing → ink sits on the margin */
   }
   .digital .meta {
     margin-top: 1.5rem;
@@ -67,6 +68,7 @@
     font-family: var(--display);
     font-size: clamp(0.78rem, 1.7vmin, 1.1rem);
     letter-spacing: 0.22em; text-transform: uppercase;
+    margin-left: -0.15em;   /* same, in the chrome's own em, so its ink lines up with the time */
   }
   .digital .ampm { opacity: 0.6; }
   .digital .date { opacity: 0.34; }
