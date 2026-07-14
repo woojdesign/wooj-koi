@@ -11,10 +11,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap" rel="stylesheet">
 <style>
+  @font-face {
+    font-family: "Big Bird";
+    src: url("fonts/TAYBigBirdRegular.woff2") format("woff2"),
+         url("fonts/TAYBigBirdRegular.woff") format("woff");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
   :root {
     --warm: #e9e4d8;
     --mono: "Geist Mono", ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
     --sans: "Geist", -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+    --display: "Big Bird", "Geist", -apple-system, system-ui, sans-serif; /* humanist time face */
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -45,13 +52,13 @@
   }
   .panel { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
 
-  /* Digital — Geist Sans time (softer, rounder), capped so it stays calm on large screens;
-     Geist Mono chrome hangs off the same left edge. */
-  .digital { font-family: var(--sans); }
+  /* Digital — Big Bird (humanist) time, capped so it stays calm on large screens; Geist Mono
+     chrome hangs off the same left edge. Big Bird ships a single Regular weight. */
+  .digital { font-family: var(--display); }
   .digital .time {
-    font-weight: 350;
+    font-weight: 400;
     font-size: clamp(3.25rem, 26vmin, 9.5rem);
-    letter-spacing: -0.035em;
+    letter-spacing: -0.01em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
