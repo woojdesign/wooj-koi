@@ -15,6 +15,9 @@ export const PHYSICS_CONFIG = {
     // GAIT_RATE; the flick (a sharp burst envelope) boosts the beat rate, the wave amplitude,
     // and gives a forward propulsion pulse — so a fish flicks its tail, darts, then coasts.
     GAIT_RATE: 0.045,            // gait cycles/frame-ish (a beat-burst every ~2.3s)
+    GAIT_COAST_BIAS: 0.25,       // burst-and-coast duty: sine must clear this to burst, so most
+                                 // of the cycle is a flat coast (~40% burst / 60% coast). Higher
+                                 // = briefer bursts + longer straight glides.
     FLICK_RATE: 0.9,             // beat-rate boost at full flick (faster beats mid-burst)
     FLICK_PROPULSION: 0.5,       // forward speed boost at full flick (the dart)
     // (undulation amplitude while gliding lives in ANIMATION_CONFIG.wave.glideAmp — a render dial)

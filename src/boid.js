@@ -130,8 +130,14 @@ export class Boid {
         // instead of undulating at a constant rate. `flick` spikes briefly (the propulsive
         // beat) then sits near zero (gliding). Drives beat-rate, amplitude, and propulsion.
         this.gaitPhase += PHYSICS_CONFIG.GAIT_RATE * (0.8 + 0.4 * this.speedMultiplier);
-        const burst = Math.max(0, Math.sin(this.gaitPhase));
-        this.flick = burst * burst; // mostly gliding (near 0), sharp flicks toward 1
+        // Burst-and-coast: a brief propulsive burst near the top of each gait cycle, then a
+        // passive coast where the body goes nearly straight (fish cut cost of transport >50%
+        // this way). coastBias raises the floor the sine must clear, so most of the cycle is a
+        // flat coast and the burst is a sharp spike rather than a smooth half-cycle swell.
+        const raw = Math.sin(this.gaitPhase);
+        const cb = PHYSICS_CONFIG.GAIT_COAST_BIAS;
+        const burst = Math.max(0, (raw - cb) / (1 - cb));
+        this.flick = burst * burst; // 0 through the coast, sharp spike toward 1 at the burst
 
         // Where does it want to go? Normally the flocking forces decide. But when it
         // has broken off (independent), it steers to its own wander heading and

@@ -15,7 +15,9 @@ export const ANIMATION_CONFIG = {
         // nose (dy/dt=0 at t≈0.23) and leaves the head a small yaw recoil — replacing the old
         // monotonic head→tail "whip" ramp (headAmp/tailPower) with the measured envelope.
         envelope: { a: 0.05, b: -0.13, c: 0.28 },
-        glideAmp: 0.28,          // GAIT: undulation amplitude while gliding (flick=0), fraction of full
+        glideAmp: 0.12,          // GAIT: undulation amplitude while gliding (flick=0), fraction of full.
+                                 // Low so the coast body goes nearly STRAIGHT (burst-and-coast), not a
+                                 // gentle wiggle — the burst supplies the flex, the coast is passive.
         dorsalDampening: 0.5      // Wave dampening for dorsal fin
     },
 
