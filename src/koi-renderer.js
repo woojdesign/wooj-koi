@@ -406,8 +406,10 @@ export class KoiRenderer {
         // draws together as the fish drives forward (water forcing the fins back).
         const spd = Math.max(0, Math.min(1, speedFraction));
         const grade = ANIMATION_CONFIG.wave.phaseGradient;
-        // wag drive: scales with speed AND the gait flick (a hard tail-kick on the burst).
-        const ga = ANIMATION_CONFIG.wave.glideAmp;
+        // wag drive: scales with speed AND the gait flick (a hard tail-kick on the burst). The
+        // tail uses its OWN, higher glide floor (tailGlideAmp) so the caudal fin keeps flowing
+        // through the coast even though the body wave (glideAmp) goes nearly straight.
+        const ga = ANIMATION_CONFIG.wave.tailGlideAmp;
         const wagDrive = (0.25 + 0.75 * spd) * (ga + (1 - ga) * (flick || 0));
         // Caudal fin as a heaving + pitching foil: the peduncle heaves laterally with the body
         // wave, and the fin PITCH lags that heave by ~a quarter cycle (π/2) — the phase that
