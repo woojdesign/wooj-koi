@@ -231,7 +231,7 @@ new p5((p) => {
       renderer.parts = parts; // apply debug layer toggles
       const sizeScale = rail.size * RENDER_SCALE;
       const speedFrac = Math.min(1, rail.speed / 0.6);
-      const ampScale = rail.size * (0.4 + 0.6*speedFrac);
+      const ampScale = rail.size * (0.8 + 0.2*speedFrac); // amplitude ~constant; speed lives in frequency
       renderer.render(p, cur.x, cur.y, cur.heading, {
         shapeParams: DEFAULT_SHAPE_PARAMS, colorParams:{ h:14, s:55, b:92 }, pattern:{ spots:[] },
         animationParams:{ waveTime: wavePhase, sizeScale, waveAmplitudeScale: ampScale, lengthMultiplier:1, tailLength:1.3, turnRate, speedFraction: speedFrac, flick: 1 },

@@ -239,7 +239,9 @@ new p5((p) => {
       const waveTime = boid.wavePhase + boid.animationOffset;
       const sizeScale = boid.sizeMultiplier * (p.width < 640 ? 5.5 : 9.9);
       const speedFrac = Math.min(1, boid.speed / (params.maxSpeed * boid.speedMultiplier));
-      const ampScale = boid.sizeMultiplier * (0.4 + 0.6 * speedFrac);
+      // Speed lives in beat FREQUENCY (wavePhase), not amplitude — hold amplitude ~constant
+      // (Strouhal ~0.2-0.4). The gait handles the low-effort amplitude drop.
+      const ampScale = boid.sizeMultiplier * (0.8 + 0.2 * speedFrac);
       const renderParams = {
         shapeParams: DEFAULT_SHAPE_PARAMS, colorParams: boid.color, pattern: boid.pattern,
         animationParams: { waveTime, sizeScale, waveAmplitudeScale: ampScale,
