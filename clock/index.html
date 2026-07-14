@@ -32,45 +32,41 @@
   /* Time-of-day veil that dims the koi at night. */
   #veil { position: fixed; inset: 0; z-index: 1; background: #0d1016; opacity: 0; pointer-events: none; transition: opacity 4s ease; }
 
+  /* Grid: one consistent margin, everything left-aligned to a single column edge, vertically
+     centred. Calm through order (Müller-Brockmann) — few elements, lots of field for the koi. */
   #clock {
     position: fixed; inset: 0; z-index: 2;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: center; justify-content: flex-start;
     color: var(--warm);
     transition: opacity 4s ease;
     -webkit-user-select: none;
-    padding: max(env(safe-area-inset-top), 4vmin) max(env(safe-area-inset-right), 4vmin)
-             max(env(safe-area-inset-bottom), 4vmin) max(env(safe-area-inset-left), 4vmin);
+    padding: max(env(safe-area-inset-top), 7vmin) max(env(safe-area-inset-right), 7vmin)
+             max(env(safe-area-inset-bottom), 7vmin) max(env(safe-area-inset-left), 7vmin);
   }
-  /* The clock content is centered; in landscape it sits centered within the LEFT half, leaving
-     the right as open water for the koi (like the homelab reference). */
-  .panel { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  @media (orientation: landscape) {
-    #clock { justify-content: flex-start; }
-    .panel { width: 50%; }
-  }
+  .panel { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
 
-  /* Digital — a clean mono time (tabular), with the small tracked-mono chrome underneath. */
-  .digital { font-family: var(--mono); }
+  /* Digital — Geist Sans time (softer, rounder), capped so it stays calm on large screens;
+     Geist Mono chrome hangs off the same left edge. */
+  .digital { font-family: var(--sans); }
   .digital .time {
-    font-weight: 340;
-    font-size: min(23vw, 42vh);
-    letter-spacing: -0.03em;
+    font-weight: 350;
+    font-size: clamp(3.25rem, 26vmin, 9.5rem);
+    letter-spacing: -0.035em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
   .digital .meta {
-    margin-top: 1.6rem;
-    display: flex; gap: 1.1em; align-items: baseline; justify-content: center;
+    margin-top: 1.5rem;
+    display: flex; gap: 1.1em; align-items: baseline;
     font-family: var(--mono);
-    font-size: clamp(0.72rem, 1.6vmin, 1.05rem);
-    letter-spacing: 0.34em; text-transform: uppercase;
-    padding-left: 0.34em; /* balance the tracking */
+    font-size: clamp(0.68rem, 1.4vmin, 0.95rem);
+    letter-spacing: 0.32em; text-transform: uppercase;
   }
-  .digital .ampm { opacity: 0.62; }
-  .digital .date { opacity: 0.36; }
+  .digital .ampm { opacity: 0.6; }
+  .digital .date { opacity: 0.34; }
 
   /* Analog */
-  .analog { width: min(58vmin, 92%); height: min(58vmin, 92%); }
+  .analog { width: min(46vmin, 100%); height: min(46vmin, 100%); }
   .analog .tick { stroke: var(--warm); stroke-width: 1.4; opacity: 0.28; }
   .analog .tick.h { opacity: 0.5; stroke-width: 2; }
   .analog .hand { stroke: var(--warm); stroke-linecap: round; }
