@@ -7,9 +7,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>koi clock</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap" rel="stylesheet">
 <style>
   @font-face {
     font-family: "Big Bird";
@@ -33,16 +30,18 @@
     -webkit-user-select: none; user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  #pond { position: fixed; inset: 0; z-index: 0; }
+  /* Time-of-day gradient pond, behind the (mostly-transparent) koi canvas. Set by JS. */
+  #bg { position: fixed; inset: 0; z-index: 0; background: #0d1016; }
+  #pond { position: fixed; inset: 0; z-index: 1; }
   #pond canvas { display: block; }
 
-  /* Time-of-day veil that dims the koi at night. */
-  #veil { position: fixed; inset: 0; z-index: 1; background: #0d1016; opacity: 0; pointer-events: none; transition: opacity 4s ease; }
+  /* Veil that dims the koi at night (kept subtle now that the gradient darkens too). */
+  #veil { position: fixed; inset: 0; z-index: 2; background: #06070c; opacity: 0; pointer-events: none; transition: opacity 4s ease; }
 
   /* Grid: one consistent margin, everything left-aligned to a single column edge, vertically
      centred. Calm through order (Müller-Brockmann) — few elements, lots of field for the koi. */
   #clock {
-    position: fixed; inset: 0; z-index: 2;
+    position: fixed; inset: 0; z-index: 3;
     display: flex; align-items: center; justify-content: flex-start;
     color: var(--warm);
     transition: opacity 4s ease;
@@ -65,9 +64,9 @@
   .digital .meta {
     margin-top: 1.5rem;
     display: flex; gap: 1.1em; align-items: baseline;
-    font-family: var(--mono);
-    font-size: clamp(0.68rem, 1.4vmin, 0.95rem);
-    letter-spacing: 0.32em; text-transform: uppercase;
+    font-family: var(--display);
+    font-size: clamp(0.78rem, 1.7vmin, 1.1rem);
+    letter-spacing: 0.22em; text-transform: uppercase;
   }
   .digital .ampm { opacity: 0.6; }
   .digital .date { opacity: 0.34; }
@@ -85,13 +84,14 @@
 
   #hint {
     position: fixed; left: 0; right: 0; bottom: env(safe-area-inset-bottom, 1.5rem); bottom: max(env(safe-area-inset-bottom), 1.5rem);
-    z-index: 3; text-align: center; color: var(--warm); opacity: 0.35;
-    font-family: -apple-system, system-ui, sans-serif; font-size: 0.85rem; letter-spacing: 0.16em; text-transform: lowercase;
+    z-index: 4; text-align: center; color: var(--warm); opacity: 0.35;
+    font-family: var(--display); font-size: 0.9rem; letter-spacing: 0.16em; text-transform: lowercase;
     transition: opacity 1.2s ease; pointer-events: none;
   }
 </style>
 </head>
 <body>
+  <div id="bg"></div>
   <div id="pond"></div>
   <div id="veil"></div>
   <div id="clock">
@@ -124,7 +124,7 @@
       assetBase: '/koi',
       count: 3,
       followPointer: false,
-      background: [15, 18, 24, 16],           // deep warm-blue water wash (low alpha → faint trails)
+      background: [12, 14, 22, 9],            // faint water wash; the pond colour comes from #bg gradient
       scale: 7.7,                             // fixed mid-size (between the phone 5.5 / desktop 9.9),
                                               // so koi stay the same calm size in portrait & landscape
       physics: { maxSpeed: 0.32, maxForce: 0.035, separationWeight: 1.6, cohesionWeight: 0.7 },
@@ -141,6 +141,7 @@
     const veil = document.getElementById('veil');
     const clock = document.getElementById('clock');
     const hint = document.getElementById('hint');
+    const bg = document.getElementById('bg');
 
     // Build analog tick marks (12, with the hour ones bolder).
     const ticks = document.getElementById('ticks');
@@ -166,6 +167,30 @@
       return 0.5;
     }
 
+    // Mild time-of-day pond gradient: [hour, topRGB, bottomRGB]. All dark + low-saturation so it
+    // stays gentle — cool near-black deep night, a faint warmth at dawn/dusk, soft cool blue midday.
+    const GRAD = [
+      [0,    [14,16,28], [7,8,14]],    // midnight — indigo → near-black
+      [4,    [10,12,22], [5,6,11]],    // deep night — darkest, coolest
+      [6,    [20,17,30], [9,10,17]],   // pre-dawn — faint violet
+      [7.5,  [34,24,26], [12,13,22]],  // sunrise — dusty warm rose
+      [9,    [22,26,34], [11,14,20]],  // morning — soft cool blue
+      [12,   [24,29,38], [13,16,23]],  // midday — gentle blue, a touch lighter
+      [17,   [30,27,30], [13,14,20]],  // late afternoon
+      [19,   [40,26,24], [14,12,18]],  // sunset — warm amber-rose
+      [20.5, [26,20,30], [11,11,18]],  // dusk — violet
+      [22,   [16,16,26], [8,9,15]],    // evening — cooling indigo
+      [24,   [14,16,28], [7,8,14]],
+    ];
+    const lerp3 = (a, b, t) => [0,1,2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+    function timeGradient(h) {
+      for (let i = 0; i < GRAD.length - 1; i++) {
+        const [h0, t0, b0] = GRAD[i], [h1, t1, b1] = GRAD[i + 1];
+        if (h >= h0 && h <= h1) { const t = (h - h0) / (h1 - h0); return { top: lerp3(t0, t1, t), bot: lerp3(b0, b1, t) }; }
+      }
+      return { top: GRAD[0][1], bot: GRAD[0][2] };
+    }
+
     function render() {
       const now = new Date();
       let h = now.getHours();
@@ -186,9 +211,12 @@
       hMinute.setAttribute('transform', `rotate(${minA})`);
       hHour.setAttribute('transform', `rotate(${hourA})`);
 
-      // Time-of-day dimming
-      const b = ambient(h + m / 60);
-      veil.style.opacity = ((1 - b) * 0.82).toFixed(3);      // dim the koi at night
+      // Time-of-day: gradient pond + dimming
+      const hf = h + m / 60;
+      const g = timeGradient(hf);
+      bg.style.background = `linear-gradient(180deg, rgb(${g.top.join(',')}) 0%, rgb(${g.bot.join(',')}) 100%)`;
+      const b = ambient(hf);
+      veil.style.opacity = ((1 - b) * 0.6).toFixed(3);       // dim the koi at night (gradient darkens too)
       clock.style.opacity = (0.26 + 0.6 * b).toFixed(3);     // keep time faintly readable, floor ~0.26
     }
     render();
