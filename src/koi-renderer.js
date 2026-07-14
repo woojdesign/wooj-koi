@@ -417,8 +417,11 @@ export class KoiRenderer {
         // (peak lateral velocity = peak load) and eases shut on the coast, layered over the
         // speed-streamlining pinch (the fork drawing together as the fish drives forward).
         const heavePhase = waveTime - ((n - 1) / n) * grade;                          // peduncle lateral phase
-        const flap = Math.sin(heavePhase - Math.PI / 2) * 0.20 * wagDrive;            // pitch lags heave 90° (rad)
-        const tipSway = Math.sin(heavePhase - Math.PI / 2 - 0.6) * 0.45 * wagDrive;   // tips lag the base → flow
+        // Pitch lags the heave, but a gentler lag than a full quarter cycle — the 90° lag read
+        // as the fan rigidly trailing; this keeps the flowing, graceful sweep.
+        const pitchLag = 0.6;
+        const flap = Math.sin(heavePhase - pitchLag) * 0.20 * wagDrive;               // whole-fan pitch (rad)
+        const tipSway = Math.sin(heavePhase - pitchLag - 0.6) * 0.45 * wagDrive;      // tips lag the base → flow
         const strokeSpread = Math.abs(Math.cos(heavePhase)) * wagDrive;              // 0 at stroke ends, max mid-stroke (only while beating)
         const pinch = (1 - 0.35 * spd) * (1 + 0.30 * strokeSpread);                   // streamline + power-stroke spread
 
