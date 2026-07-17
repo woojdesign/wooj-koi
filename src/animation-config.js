@@ -9,18 +9,19 @@ export const ANIMATION_CONFIG = {
         phaseGradient: 3.5,      // Controls wave propagation along body (0-1 becomes 0-3.5)
         amplitude: 0.55,         // base wiggle amplitude (per fish it also scales with speed)
         dampening: 0.2,           // (legacy) Wave dampening towards tail (1 - t * dampening)
-        // AMPLITUDE ENVELOPE (Di Santo et al. 2021, PNAS 2113206118): the lateral amplitude along
-        // the body converges across fishes to y = a + b·t + c·t² (in body lengths, t = nose→tail).
-        // Normalized here so the tail (t=1) = 1. This places the node/pivot ~0.2 BL back from the
-        // nose (dy/dt=0 at t≈0.23) and leaves the head a small yaw recoil — replacing the old
-        // monotonic head→tail "whip" ramp (headAmp/tailPower) with the measured envelope.
-        envelope: { a: 0.05, b: -0.13, c: 0.28 },
-        glideAmp: 0.55,          // GAIT: BODY undulation amplitude while gliding (flick=0), fraction of
-                                 // full. Kept HIGH so the body keeps undulating gracefully and
-                                 // continuously (the v0.1.7 feel) — the gait is now just a gentle surge
-                                 // (0.55 coast → 1.0 burst), not a freeze-and-dart. Lower it toward ~0.15
-                                 // for a pronounced burst-and-coast (biomechanically truer but stiffer).
-        tailGlideAmp: 0.65,      // CAUDAL FIN glide floor — a touch above the body so the fin always
+        // WHIP amplitude envelope (v0.1.9, restored as the shipped default): body-wave amplitude
+        // grows from a quiet head to a big flowing tail as headAmp + (1-headAmp)·t^tailPower. Reads
+        // "dynamic but calm" (Sean's pick). The measured 'node' quadratic below (Di Santo et al.
+        // 2021, PNAS 2113206118) pins a near-still node ~0.2 BL back — biomechanically truer but
+        // reads stiffer; kept selectable via envelopeMode.
+        envelope: { a: 0.05, b: -0.13, c: 0.28 },   // used only when envelopeMode === 'node'
+        envelopeMode: 'whip',    // 'whip' (v0.1.9 head→tail ramp) | 'node' (measured quadratic)
+        headAmp: 0.18,           // WHIP: body-wave amplitude at the head (fraction of tail)…
+        tailPower: 1.7,          // …growing toward the tail as headAmp→1 over t^tailPower (the "whip")
+        glideAmp: 0.45,          // GAIT: BODY undulation amplitude while gliding (flick=0), fraction of
+                                 // full. The body goes calmer (not straight) on the coast, then whips
+                                 // up on the burst. Lower → more pronounced burst-and-coast.
+        tailGlideAmp: 0.6,       // CAUDAL FIN glide floor — a touch above the body so the fin always
                                  // flows through the coast; higher = more continuous tail flow.
         dorsalDampening: 0.5      // Wave dampening for dorsal fin
     },

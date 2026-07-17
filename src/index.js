@@ -146,11 +146,9 @@ export async function createKoiBackground(options = {}) {
         const sizeScale = boid.sizeMultiplier * (scale ?? (p.width < 640 ? 5.5 : 9.9));
         // Wiggle amplitude tracks speed, so a gliding fish undulates gently.
         const speedFrac = Math.min(1, boid.speed / (params.maxSpeed * boid.speedMultiplier));
-        // Fish encode speed in tail-beat FREQUENCY, not amplitude (Bainbridge 1958; Strouhal
-        // number stays ~0.2-0.4). wavePhase already advances with speed, so hold the wave
-        // amplitude ~constant here (small residual so a near-stopped fish reads as easing off);
-        // the burst-and-coast gait supplies the real low-effort amplitude drop.
-        const ampScale = boid.sizeMultiplier * (0.8 + 0.2 * speedFrac);
+        // Wave amplitude tracks speed (v0.1.9): a gliding fish undulates gently, a darting one
+        // whips harder — so the body visibly swells on each gait burst. Reads dynamic-but-calm.
+        const ampScale = boid.sizeMultiplier * (0.4 + 0.6 * speedFrac);
         const renderParams = {
           shapeParams: DEFAULT_SHAPE_PARAMS,
           colorParams: boid.color,

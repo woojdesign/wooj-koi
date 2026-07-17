@@ -502,9 +502,14 @@ export class KoiRenderer {
         // continued into the tail, so body and tail stay one connected arc.
         const segments = [];
 
-        // Measured amplitude envelope (see ANIMATION_CONFIG.wave.envelope): a·+·b·t·+·c·t²
-        // normalized to the tail. Node/pivot sits ~0.2 BL back; the head keeps a small yaw.
-        const env = ANIMATION_CONFIG.wave.envelope;
+        // Body-wave amplitude envelope along the fish (t = nose→tail). Two shapes:
+        //  - 'whip'  (v0.1.9): headAmp + (1-headAmp)·t^tailPower — a quiet head growing to a big
+        //            flowing tail. Monotonic, reads dynamic-but-calm.
+        //  - 'node'  (v0.2.x): the measured quadratic (a+b·t+c·t²) that pins a near-still node ~0.2 BL
+        //            back. Biomechanically truer but reads stiffer.
+        const wcfg = ANIMATION_CONFIG.wave;
+        const whip = wcfg.envelopeMode === 'whip';
+        const env = wcfg.envelope;
         const envRef = env.a + env.b + env.c; // amplitude at the tail (t=1), for normalization
 
         for (let i = 0; i < numSegments; i++) {
@@ -512,7 +517,9 @@ export class KoiRenderer {
             const x = this.lerp(7, -9, t) * sizeScale * lengthMultiplier;
             // Wave amplitude uses separate scaling to avoid exaggerated motion when rendering at larger sizes
             // Use cached wave value instead of calling Math.sin() (performance optimization)
-            const ampEnv = (env.a + env.b * t + env.c * t * t) / envRef;
+            const ampEnv = whip
+                ? wcfg.headAmp + (1 - wcfg.headAmp) * Math.pow(t, wcfg.tailPower)
+                : (env.a + env.b * t + env.c * t * t) / envRef;
             const wave = this.waveCache[i] *
                       ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale * ampEnv;
             const y = wave + arcOffset(curvature, x, sizeScale); // swimming wave + circular-arc bend

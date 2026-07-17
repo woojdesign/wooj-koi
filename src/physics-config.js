@@ -18,7 +18,7 @@ export const PHYSICS_CONFIG = {
     GAIT_COAST_BIAS: 0.25,       // burst-and-coast duty: sine must clear this to burst, so most
                                  // of the cycle is a flat coast (~40% burst / 60% coast). Higher
                                  // = briefer bursts + longer straight glides.
-    FLICK_RATE: 0.9,             // beat-rate boost at full flick (faster beats mid-burst)
+    FLICK_RATE: 0.7,             // beat-rate boost at full flick (faster beats mid-burst)
     FLICK_PROPULSION: 0.5,       // forward speed boost at full flick (the dart)
     // (undulation amplitude while gliding lives in ANIMATION_CONFIG.wave.glideAmp — a render dial)
 
