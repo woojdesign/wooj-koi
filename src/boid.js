@@ -26,6 +26,7 @@ export class Boid {
         this.speed = this.velocity.mag();
         this.angularVelocity = 0;
         this.renderCurvature = 0; // smoothed curvature the renderer bends the body by
+        this.curvHist = [];       // recent renderCurvature values (head-led spine; see update)
         this.wanderHeading = this.heading; // where it steers while broken off
         this.wavePhase = 0; // swimming-wiggle phase — advances with speed, so a slow fish wiggles slowly
         this.gaitPhase = randomFunc(0, Math.PI * 2); // swim-gait phase (burst/glide), per-fish offset
@@ -191,6 +192,12 @@ export class Boid {
         // dead-zone (esp. when crowding nudges the heading), which would flick the tail.
         const curvature = this.angularVelocity / Math.max(this.speed, 0.15);
         this.renderCurvature += (curvature - this.renderCurvature) * PHYSICS_CONFIG.BEND_SMOOTHING;
+
+        // Short curvature history (most recent last), so the renderer can build a head-led spine:
+        // the body reflects the curvature the HEAD had, delayed down the body. Enough frames to
+        // cover the longest body-lag the renderer might ask for.
+        this.curvHist.push(this.renderCurvature);
+        if (this.curvHist.length > 360) this.curvHist.shift();
 
         // Velocity follows heading + speed; advance; clear forces.
         this.velocity = V.fromAngle(this.heading, this.speed);

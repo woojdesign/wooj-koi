@@ -20,7 +20,11 @@ import { RENDERING_CONFIG } from './rendering-config.js';
 // on its path. Drawn deflection = y·sizeScale (the deform scales the spine), so we return units.
 // `match` = the fraction of the path curvature the body takes (1 = lies exactly on the rail);
 // `maxCurve` caps how tight the body itself will bend (px⁻¹).
-export const KOI_BEND = { match: 1.0, maxCurve: 0.02 };
+// headLead: 0 = the symmetric arc pivoting about mid-body (shipped). 1 = a head-led spine — the
+//   body bends from the NOSE and the curvature propagates tail-ward with a lag, so a turn enters
+//   and exits led by the head instead of both ends straightening from the center. `lag` = frames
+//   of propagation across the whole body (head→tail); higher = the tail is "later".
+export const KOI_BEND = { match: 1.0, maxCurve: 0.02, headLead: 1, lag: 30 };
 function koiCurvature(turnRate) {
     return Math.max(-KOI_BEND.maxCurve, Math.min(KOI_BEND.maxCurve, KOI_BEND.match * turnRate));
 }
@@ -63,6 +67,17 @@ function profTickFish() {
 function arcOffset(curvature, xPx, sizeScale) {
     if (Math.abs(curvature) < 1e-6) return 0;
     return (1 - Math.cos(curvature * xPx)) / curvature / sizeScale;
+}
+
+// Sample a curvature history `delay` frames back from the most recent (linear-interpolated).
+// hist is most-recent-last; returns 0 for an empty history.
+function sampleCurv(hist, delay) {
+    if (!hist || hist.length === 0) return 0;
+    const idx = hist.length - 1 - delay;
+    if (idx <= 0) return hist[0];
+    if (idx >= hist.length - 1) return hist[hist.length - 1];
+    const lo = Math.floor(idx), f = idx - lo;
+    return hist[lo] * (1 - f) + hist[lo + 1] * f;
 }
 
 /**
@@ -290,7 +305,7 @@ export class KoiRenderer {
         // texture/spots (so a deliberately texture-off render still draws immediately).
         if ((this.parts.texture || this.parts.spots) && !(this.brushTextures && this.brushTextures.imagesDecoded())) return;
 
-        const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0, speedFraction = 0, flick = 0 } = animationParams;
+        const { waveTime, sizeScale, lengthMultiplier = 1, tailLength = 1, waveAmplitudeScale = 1, turnRate = 0, speedFraction = 0, flick = 0, spineHist = null } = animationParams;
         const { brightnessBoost = 0, saturationBoost = 0, sizeScale: modifierSizeScale = 1 } = modifiers;
 
         // Apply modifier size scaling
@@ -309,7 +324,8 @@ export class KoiRenderer {
             lengthMultiplier,
             shapeParams,
             swimAmp,             // wave amplitude (base × gait flick)
-            curvature            // Body arc curvature when turning
+            curvature,           // Body arc curvature when turning
+            spineHist            // curvature history (head-led spine; null → symmetric arc)
         ));
 
         // Save graphics state
@@ -485,7 +501,7 @@ export class KoiRenderer {
     /**
      * Calculate body segment positions with swimming wave motion
      */
-    calculateSegments(numSegments, waveTime, sizeScale, lengthMultiplier, shapeParams = DEFAULT_SHAPE_PARAMS, waveAmplitudeScale = 1.0, curvature = 0) {
+    calculateSegments(numSegments, waveTime, sizeScale, lengthMultiplier, shapeParams = DEFAULT_SHAPE_PARAMS, waveAmplitudeScale = 1.0, curvature = 0, spineHist = null) {
         // Pre-compute wave values once per frame (performance optimization)
         // Eliminates ~800 Math.sin() calls per frame by caching when time changes
         if (waveTime !== this.lastWaveTime || numSegments !== this.lastNumSegments) {
@@ -512,6 +528,43 @@ export class KoiRenderer {
         const env = wcfg.envelope;
         const envRef = env.a + env.b + env.c; // amplitude at the tail (t=1), for normalization
 
+        // Head-led spine (optional): the body still lies on a proper curvature-integral (so it reads
+        // as turning about a radius, not drifting sideways), but each point uses the curvature the
+        // HEAD had `lag`·t frames ago — so during a turn's entry/exit the front leads and the tail is
+        // "later". It is anchored at the body reference (x=0) with the tangent along the heading, and
+        // the drift/rotation component is subtracted — so at STEADY curvature it reproduces the
+        // shipped arc exactly (only transitions differ). yHL is in the same pre-sizeScale units as arcOffset.
+        const headLead = KOI_BEND.headLead;
+        let yHL = null;
+        if (headLead > 0 && spineHist && spineHist.length) {
+            const xHead = 7 * sizeScale * lengthMultiplier;
+            const xTail = -9 * sizeScale * lengthMultiplier;
+            const bodyLen = xHead - xTail;
+            // Local curvature at along-body position x = the curvature the HEAD had when it was at that
+            // point, i.e. delayed by how far x sits behind the nose (0 at nose → lag frames at tail).
+            const kAt = (x) => koiCurvature(sampleCurv(spineHist, ((xHead - x) / bodyLen) * KOI_BEND.lag));
+            // Lateral offset from the heading tangent, integrated OUTWARD from x=0 (the body reference)
+            // with y'=sin(turn angle). For a UNIFORM curvature this integrates to (1-cos(κx))/κ — exactly
+            // arcOffset — so steady turns reproduce the shipped arc; only entry/exit (non-uniform κ) differ.
+            const yOffsetAt = (xTarget) => {
+                const steps = Math.max(4, Math.ceil(Math.abs(xTarget) / (bodyLen / 48)));
+                const dx = xTarget / steps;   // signed toward head (+) or tail (−)
+                let phi = 0, y = 0, x = 0;
+                for (let s = 0; s < steps; s++) {   // midpoint rule → matches (1-cos)/κ closely at steady state
+                    const kdx = kAt(x) * dx;
+                    y += Math.sin(phi + kdx * 0.5) * dx;
+                    phi += kdx; x += dx;
+                }
+                return y;
+            };
+            yHL = new Array(numSegments);
+            for (let i = 0; i < numSegments; i++) {
+                const t = i / numSegments;
+                const x = this.lerp(7, -9, t) * sizeScale * lengthMultiplier;
+                yHL[i] = yOffsetAt(x) / sizeScale;
+            }
+        }
+
         for (let i = 0; i < numSegments; i++) {
             const t = i / numSegments;
             const x = this.lerp(7, -9, t) * sizeScale * lengthMultiplier;
@@ -522,7 +575,10 @@ export class KoiRenderer {
                 : (env.a + env.b * t + env.c * t * t) / envRef;
             const wave = this.waveCache[i] *
                       ANIMATION_CONFIG.wave.amplitude * waveAmplitudeScale * ampEnv;
-            const y = wave + arcOffset(curvature, x, sizeScale); // swimming wave + circular-arc bend
+            // Body bend: the symmetric arc, or a blend toward the head-led spine (KOI_BEND.headLead).
+            const arc = arcOffset(curvature, x, sizeScale);
+            const bend = yHL ? arc * (1 - headLead) + yHL[i] * headLead : arc;
+            const y = wave + bend; // swimming wave + body bend
 
             // Calculate width based on position using new parameters
             // Create a smooth curve from front to peak to tail

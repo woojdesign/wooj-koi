@@ -164,6 +164,7 @@ export async function createKoiBackground(options = {}) {
             // curvature (1/turn-radius): the body flex tracks the arc. Smoothed on its own
             // time constant (boid.renderCurvature) so the tail eases in/out, never snaps.
             turnRate: boid.renderCurvature,
+            spineHist: boid.curvHist, // head-led spine (used only when KOI_BEND.headLead > 0)
           },
           modifiers: { brightnessBoost: 0, saturationBoost: 0, sizeScale: 1 },
           boidSeed: Math.floor(boid.animationOffset * 1000),
